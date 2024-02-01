@@ -1,0 +1,28 @@
+version: '3'
+services:
+  # Container for evaluating and selecting models
+  model_selection:
+    container_name: ${ANALYSIS_HOST}
+    image: pytorch_analysis # Specify the image name
+    build:
+      context: $PWD/analysis
+      shm_size: '8gb'  # Increase shared memory size for NN Training
+      dockerfile: Dockerfile
+      args:
+        - USRPASSWD=${ANALYSIS_USRPASSWD}
+    volumes:
+      # Share the volumes between external folder and internal container
+      - $PWD/analysis/scripts:/scripts  # Analysis scripts
+    # -i option
+    stdin_open: true
+    # -t option
+    tty: true
+    # gpu support
+    runtime: nvidia
+    # Increase shared memory size for NN Training (https://github.com/pytorch/pytorch/issues/5040)
+    shm_size: '8gb'
+    # Startup command
+    command:
+      bash
+  # Container for a web app showing annotation data
+  #display_app:

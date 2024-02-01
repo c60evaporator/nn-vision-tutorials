@@ -1,0 +1,6 @@
+__pycache__
+*.prm
+*.pt
+analysis/.env
+analysis/scripts/tutorials/results/
+analysis/scripts/tutorials/datasets/
