@@ -593,7 +593,7 @@ import math
 from cv_utils.show_torchvision import show_bounding_boxes, show_predicted_detection_minibatch
 from cv_utils.detection_utils import target_transform_to_torchvision, resize_target
 from cv_utils.detection_datasets import CocoDetectionTV
-from cv_utils.torchhub_utils import convert_detr_result_to_torchvision
+from cv_utils.detection_result_convs import convert_detr_result_to_torchvision
 
 SEED = 42
 BATCH_SIZE = 2  # Batch size

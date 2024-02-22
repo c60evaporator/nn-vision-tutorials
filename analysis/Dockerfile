@@ -20,14 +20,17 @@ RUN apt install -y \
 
 # Install common dependencies
 RUN apt install -y git nano
+# Create repository directory
+RUN mkdir /repos
 
 ###### Object Detection ######
 # Install YOLOX
-RUN mkdir /repos
 WORKDIR /repos
 RUN git clone https://github.com/Megvii-BaseDetection/YOLOX.git
 WORKDIR /repos/YOLOX
 RUN pip install -v -e .
+# Install YOLO to COCO converter
+RUN pip install label_convert
 
 # Install YOLOv5
 WORKDIR /repos
@@ -44,7 +47,7 @@ RUN apt install -y libgl1 \
 
 ###### Semantic Segmentation ######
 # Install segmentation_models.pytorch (https://github.com/qubvel/segmentation_models.pytorch)
-RUN pip install segmentation-models-pytorch
+#RUN pip install segmentation-models-pytorch
 
 # Install Segment Anything
 #RUN pip install git+https://github.com/facebookresearch/segment-anything.git

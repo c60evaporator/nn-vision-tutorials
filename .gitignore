@@ -1,6 +1,11 @@
 __pycache__
 *.prm
 *.pt
+*.jpg
 analysis/.env
 analysis/scripts/tutorials/results/
 analysis/scripts/tutorials/datasets/
+analysis/scripts/tutorials/pretrained_weights/
+analysis/scripts/tutorials/params/
+.env
+analysis/scripts/tutorials/configs/

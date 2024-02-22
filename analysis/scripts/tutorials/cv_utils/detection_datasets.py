@@ -101,17 +101,22 @@ class YoloDetectionTV(VisionDataset):
 
     def _load_target(self, index: int, w: int, h: int) -> List[Any]:
         ann_path = self.ann_fps[index]
-        # Read text file 
-        with open(ann_path) as f:
-            lines = f.readlines()
-        # Get the labels
-        classes = [int(line.split(' ')[0]) for line in lines]
-        labels = torch.tensor(classes)
-        # Get the bounding boxes
-        rect_list = [line.split(' ')[1:] for line in lines]
-        rect_list = [[float(cell.replace('\n','')) for cell in rect] for rect in rect_list]
-        boxes = [convert_bbox_centerxywh_to_xyxy(*rect) for rect in rect_list]  # Convert [x_c, y_c, w, h] to [xmin, ymin, xmax, ymax]
-        boxes = torch.tensor(boxes) * torch.tensor([w, h, w, h], dtype=float)  # Convert normalized coordinates to raw coordinates
+        # If annotation text file doesn't exist
+        if not os.path.exists(ann_path):
+            boxes = torch.zeros(size=(0, 4))
+            labels = torch.tensor([])
+        else:  # If annotation text file exists
+            # Read text file 
+            with open(ann_path) as f:
+                lines = f.readlines()
+            # Get the labels
+            classes = [int(line.split(' ')[0]) for line in lines]
+            labels = torch.tensor(classes)
+            # Get the bounding boxes
+            rect_list = [line.split(' ')[1:] for line in lines]
+            rect_list = [[float(cell.replace('\n','')) for cell in rect] for rect in rect_list]
+            boxes = [convert_bbox_centerxywh_to_xyxy(*rect) for rect in rect_list]  # Convert [x_c, y_c, w, h] to [xmin, ymin, xmax, ymax]
+            boxes = torch.tensor(boxes) * torch.tensor([w, h, w, h], dtype=float)  # Convert normalized coordinates to raw coordinates
         target = {'boxes': boxes, 'labels': labels, 'image_path': self.images_fps[index]}
         return target
 
