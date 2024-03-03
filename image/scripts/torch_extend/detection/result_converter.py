@@ -1,5 +1,6 @@
 import torch
-from cv_utils.detection_conversion_utils import convert_bbox_centerxywh_to_xyxy
+
+from .target_converter import convert_bbox_centerxywh_to_xyxy
 
 def convert_yolov5_hub_result(yolov5_results):
     """

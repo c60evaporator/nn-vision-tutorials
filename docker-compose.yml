@@ -1,20 +1,20 @@
 version: '3'
 services:
   # Container for evaluating and selecting models
-  model_selection:
-    container_name: ${ANALYSIS_HOST}
-    image: pytorch_analysis # Specify the image name
+  image_workspace:
+    container_name: ${IMAGE_HOST}
+    image: pytorch_image # Specify the image name
     build:
-      context: $PWD/analysis
+      context: $PWD/image
       shm_size: '8gb'  # Increase shared memory size for NN Training
       dockerfile: Dockerfile
       args:
-        - USRPASSWD=${ANALYSIS_USRPASSWD}
+        - USRPASSWD=${IMAGE_USRPASSWD}
     environment:
       - PYTHONPATH=/repos/YOLOX # Avoid NoduleNotFoundError of YOLOX (https://github.com/Megvii-BaseDetection/YOLOX/issues/154) 
     volumes:
       # Share the volumes between external folder and internal container
-      - $PWD/analysis/scripts:/scripts  # Analysis scripts
+      - $PWD/image/scripts:/scripts  # Scripts
     ports:
       # Expose a port for external access
       - 80:6006  # Tensorboard

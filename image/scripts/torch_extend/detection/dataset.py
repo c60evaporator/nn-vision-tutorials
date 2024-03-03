@@ -10,10 +10,76 @@ try:
 except ImportError:
     from xml.etree.ElementTree import parse as ET_parse
 
-from cv_utils.detection_conversion_utils import convert_bbox_centerxywh_to_xyxy, convert_bbox_xywh_to_xyxy
-from cv_utils.detection_conversion_utils import TorchVisionOutput
+from .target_converter import convert_bbox_centerxywh_to_xyxy, convert_bbox_xywh_to_xyxy, target_transform_from_torchvision
 
-class CocoDetectionTV(CocoDetection, TorchVisionOutput):
+class DetectionOutput():
+    def _get_images_targets(self):
+        sample_size = self.__len__()
+        images_targets = [self.__getitem__(idx) for idx in range(sample_size)]
+        images = [image for image, target in images_targets]
+        targets = [target for image, target in images_targets]
+        return images, targets
+
+    def output_coco_annotation(self, info_dict=None, licenses_list=None):
+        if self.class_to_idx is None:
+            raise AttributeError('The "class_to_idx" attribute should not be None if the output format is COCO')
+        # Get target and images as the TorchVision format
+        images, targets = self._get_images_targets()
+        # Convert the target to COCO format
+        targets = [
+            target_transform_from_torchvision(target, out_format='coco')
+            for target in targets
+        ]
+        # Create "images" field in the annotation file
+        ann_images = [
+            {
+                'license': 4,
+                'file_name': os.path.basename(image_fp),
+                'coco_url': '',
+                'height': image.height,
+                'width': image.width,
+                'date_captured': '',
+                'flickr_url': '',
+                'id': i_img,
+            }
+            for i_img, (image, image_fp) in enumerate(zip(images, self.image_fps))
+        ]
+        # Create "annotations" field in the annotation file
+        ann_annotations = []
+        obj_id_cnt = 0
+        for i_img, target in enumerate(targets):
+            for obj in target:
+                obj_ann = {
+                    'segmentation': [],
+                    'area': 0,
+                    'iscrowd': 0,
+                    'image_id': i_img,
+                    'bbox': obj['bbox'],
+                    'category_id': obj['category_id'],
+                    'id': obj_id_cnt
+                }
+                obj_id_cnt += 1
+                ann_annotations.append(obj_ann)
+        # Create "categories" field in the annotation file
+        ann_categories = [
+            {
+                'supercategory': label_name,
+                'id': idx,
+                'name': label_name
+            }
+            for label_name, idx in self.class_to_idx.items()
+        ]
+        # Output the annotation json
+        ann_dict = {
+            'info': info_dict if info_dict is not None else {},
+            'licenses': licenses_list if licenses_list is not None else {},
+            'images': ann_images,
+            'annotations': ann_annotations,
+            'categories': ann_categories
+        }
+        return ann_dict
+
+class CocoDetectionTV(CocoDetection, DetectionOutput):
     """
     Dataset from YOLO format to Torchvision format with image path
 
@@ -58,7 +124,7 @@ class CocoDetectionTV(CocoDetection, TorchVisionOutput):
         target = {'boxes': boxes, 'labels': labels, 'image_path': os.path.join(self.root, image_path)}
         return target
     
-class YoloDetectionTV(VisionDataset, TorchVisionOutput):
+class YoloDetectionTV(VisionDataset, DetectionOutput):
     """
     Dataset from YOLO format to Torchvision format with image path
 
@@ -130,7 +196,7 @@ class YoloDetectionTV(VisionDataset, TorchVisionOutput):
     def __len__(self) -> int:
         return len(self.ids)
     
-class VOCDetectionTV(VisionDataset, TorchVisionOutput):
+class VOCDetectionTV(VisionDataset, DetectionOutput):
     """
     Dataset from Pascal VOC format to Torchvision format with image path
 

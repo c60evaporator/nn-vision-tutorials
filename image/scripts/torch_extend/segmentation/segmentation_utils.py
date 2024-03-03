@@ -29,6 +29,6 @@ def target_transform_to_torchvision(target, in_format):
     # From COCO format
     elif in_format == 'coco':
         pass
-    # Make a target dict whose keys are 'boxes' and 'labels'
+    # Make a target dict whose keys are 'masks'
     target = {'masks': masks}
     return target

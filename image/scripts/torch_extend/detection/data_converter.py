@@ -3,8 +3,7 @@ import os
 import shutil
 import json
 
-from cv_utils.detection_datasets import YoloDetectionTV
-from cv_utils.detection_conversion_utils import TorchVisionOutput
+from .dataset import YoloDetectionTV, DetectionOutput
 
 def _output_images_from_dataset(dataset, out_dir, copy_metadata=False):
     os.makedirs(out_dir, exist_ok=True)
@@ -14,7 +13,7 @@ def _output_images_from_dataset(dataset, out_dir, copy_metadata=False):
         else:
             shutil.copy(image_fp, out_dir)
 
-def _output_dataset_as_voc(train_dataset: TorchVisionOutput, val_dataset: TorchVisionOutput, test_dataset: TorchVisionOutput, 
+def _output_dataset_as_voc(train_dataset: DetectionOutput, val_dataset: DetectionOutput, test_dataset: DetectionOutput, 
                            output_dir, out_train_dir, out_val_dir, out_test_dir):
     """Output the dataset as Pascal VOC format"""
     pass
@@ -25,7 +24,7 @@ def _save_coco_annotation(ann_dict, out_dir, ann_filename):
         with open(f'{out_dir}/{ann_filename}', 'w') as f:
             json.dump(ann_dict, f)
 
-def _output_dataset_as_coco(train_dataset: TorchVisionOutput, val_dataset: TorchVisionOutput, test_dataset: TorchVisionOutput,
+def _output_dataset_as_coco(train_dataset: DetectionOutput, val_dataset: DetectionOutput, test_dataset: DetectionOutput,
                             output_dir, out_train_dir, out_val_dir, out_test_dir,
                             train_ann_name, val_ann_name, test_ann_name):
     """Output the dataset as COCO format"""
@@ -50,7 +49,7 @@ def _output_dataset_as_coco(train_dataset: TorchVisionOutput, val_dataset: Torch
     _save_coco_annotation(val_ann, f'{output_dir}/annotations/', val_ann_filename)
     _save_coco_annotation(test_ann, f'{output_dir}/annotations/', test_ann_filename)
 
-def _output_dataset_as_yolo(train_dataset: TorchVisionOutput, val_dataset: TorchVisionOutput, test_dataset: TorchVisionOutput, 
+def _output_dataset_as_yolo(train_dataset: DetectionOutput, val_dataset: DetectionOutput, test_dataset: DetectionOutput, 
                             output_dir, out_train_dir, out_val_dir, out_test_dir):
     """Output the dataset as YOLO format"""
     pass
@@ -142,7 +141,7 @@ def _convert_from_yolo(yolo_yaml, yolo_root_dir, output_dir,
                                 out_train_dir, out_val_dir, out_test_dir,
                                 train_ann_name, val_ann_name, test_ann_name)
     else:
-        raise ValueError('The "output_format" argument should be "pascal_voc" or "coco"')   
+        raise ValueError('The "output_format" argument should be "pascal_voc" or "coco"')
 
 def convert_yolo2coco(yolo_yaml, yolo_root_dir, output_dir, 
                       out_train_dir=None, out_val_dir=None, out_test_dir=None,
