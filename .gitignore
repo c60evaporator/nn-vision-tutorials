@@ -1,6 +1,7 @@
 __pycache__
 *.prm
 *.pt
+*.pth
 *.jpg
 analysis/.env
 analysis/scripts/tutorials/results/

@@ -28,9 +28,8 @@ RUN mkdir /repos
 WORKDIR /repos
 RUN git clone https://github.com/Megvii-BaseDetection/YOLOX.git
 WORKDIR /repos/YOLOX
+RUN pip install -r requirements.txt
 RUN pip install -v -e .
-# Install YOLO to COCO converter
-RUN pip install label_convert
 
 # Install YOLOv5
 WORKDIR /repos

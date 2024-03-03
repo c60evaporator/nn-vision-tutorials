@@ -57,7 +57,7 @@ class VOCSegmentationSmp(Dataset):
             class_palette=None
     ):
         self.ids = os.listdir(images_dir)
-        self.images_fps = [os.path.join(images_dir, image_id) for image_id in self.ids]
+        self.image_fps = [os.path.join(images_dir, image_id) for image_id in self.ids]
         self.masks_fps = [os.path.join(masks_dir, image_id) for image_id in self.ids]
         
         # convert str names to class values on masks
@@ -72,7 +72,7 @@ class VOCSegmentationSmp(Dataset):
     
     def __getitem__(self, i):
         # read data
-        image = cv2.imread(self.images_fps[i])
+        image = cv2.imread(self.image_fps[i])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         mask = cv2.imread(self.masks_fps[i], 0)
         

@@ -1,20 +1,20 @@
 import torch
-from cv_utils.detection_utils import convert_bbox_centerxywh_to_xyxy
+from cv_utils.detection_conversion_utils import convert_bbox_centerxywh_to_xyxy
 
-def convert_yolov5_result_to_torchvision(yolov5_results):
+def convert_yolov5_hub_result(yolov5_results):
     """
     Convert YOLOv5 PyTorch Hub results to TorchVision object detection prediction format
 
-    from: {'pred': [Tensor([[xmin1, ymin1, xmax1, ymax1, confidence1, class1], [xmin2,..],..]])]}
+    from: {'pred': [Tensor([[xmin1, ymin1, xmax1, ymax1, confidence1, labelindex1], [xmin2,..],..]])]}
 
-    to: [{'boxes': Tensor([[xmin1, ymin1, xmax1, ymax1],..]), 'labels': Tensor([class1,..]), 'scores': Tensor([confidence1,..])}]
+    to: [{'boxes': Tensor([[xmin1, ymin1, xmax1, ymax1],..]), 'labels': Tensor([labelindex1,..]), 'scores': Tensor([confidence1,..])}]
 
     Parameters
     ----------
-    yolo_results : dict
+    yolov5_results : dict
         YOLOv5 PyTorch Hub results
     
-        {'pred': [Tensor([[xmin1, ymin1, xmax1, ymax1, confidence1, class1], [xmin2,..],..]])]}
+        {'pred': [Tensor([[xmin1, ymin1, xmax1, ymax1, confidence1, ], [xmin2,..],..]])]}
     """
     tv_pred = [{
         'boxes': pred[:,:4],
@@ -23,20 +23,20 @@ def convert_yolov5_result_to_torchvision(yolov5_results):
     } for pred in yolov5_results.pred]
     return tv_pred
 
-def convert_yolov8_result_to_torchvision(yolov8_results):
+def convert_yolov8_hub_result(yolov8_results):
     """
     Convert YOLOv8 ultralytics YOLO results to TorchVision object detection prediction format
 
-    from: [{'boxes': {'data': Tensor([[xmin1, ymin1, xmax1, ymax1, confidence1, class1], [xmin2,..],..]])}}]
+    from: [{'boxes': {'data': Tensor([[xmin1, ymin1, xmax1, ymax1, confidence1, labelindex1], [xmin2,..],..]])}}]
 
-    to: [{'boxes': Tensor([[xmin1, ymin1, xmax1, ymax1],..]), 'labels': Tensor([class1,..]), 'scores': Tensor([confidence1,..])}]
+    to: [{'boxes': Tensor([[xmin1, ymin1, xmax1, ymax1],..]), 'labels': Tensor([labelindex1,..]), 'scores': Tensor([confidence1,..])}]
 
     Parameters
     ----------
-    yolo_results : dict
+    yolov8_results : dict
         YOLOv8 ultralytics YOLO results
     
-        [{'boxes': {'data': Tensor([[xmin1, ymin1, xmax1, ymax1, confidence1, class1], [xmin2,..],..]])}}]
+        [{'boxes': {'data': Tensor([[xmin1, ymin1, xmax1, ymax1, confidence1, labelindex1], [xmin2,..],..]])}}]
     """
     tv_pred = [{
         'boxes': result.boxes.data[:,:4],
@@ -45,7 +45,7 @@ def convert_yolov8_result_to_torchvision(yolov8_results):
     } for result in yolov8_results]
     return tv_pred
 
-def convert_detr_result_to_torchvision(detr_results, img_sizes, same_img_size, prob_threshold=None):
+def convert_detr_hub_result(detr_results, img_sizes, same_img_size, prob_threshold=None):
     """
     Convert DETR PyTorch Hub results to TorchVision object detection prediction format
 
@@ -57,7 +57,7 @@ def convert_detr_result_to_torchvision(detr_results, img_sizes, same_img_size, p
 
         ['pred_logits': Tensor([[[class1_logit1, class2_logit1],..]]), {'pred_logits': Tensor([[[nxmin1, nymin1, nxmax1, nymax1],..]])} --- If same_img_size is False
 
-    to: [{'boxes': Tensor([[xmin1, ymin1, xmax1, ymax1],..]), 'labels': Tensor([class1,..]), 'scores': Tensor([confidence1,..])}]
+    to: [{'boxes': Tensor([[xmin1, ymin1, xmax1, ymax1],..]), 'labels': Tensor([labelindex1,..]), 'scores': Tensor([confidence1,..])}]
 
     Parameters
     ----------

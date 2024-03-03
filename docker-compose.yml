@@ -10,9 +10,14 @@ services:
       dockerfile: Dockerfile
       args:
         - USRPASSWD=${ANALYSIS_USRPASSWD}
+    environment:
+      - PYTHONPATH=/repos/YOLOX # Avoid NoduleNotFoundError of YOLOX (https://github.com/Megvii-BaseDetection/YOLOX/issues/154) 
     volumes:
       # Share the volumes between external folder and internal container
       - $PWD/analysis/scripts:/scripts  # Analysis scripts
+    ports:
+      # Expose a port for external access
+      - 80:6006  # Tensorboard
     # -i option
     stdin_open: true
     # -t option

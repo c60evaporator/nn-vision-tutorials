@@ -83,6 +83,7 @@ def show_bounding_boxes(image, boxes, labels=None, idx_to_class=None,
     if idx_to_class is not None:
         labels = [idx_to_class[int(label.item())] for label in labels]
     # Show All bounding boxes
+    print(boxes)
     image_with_boxes = draw_bounding_boxes(image, boxes, labels=labels, colors=colors,
                                            fill=fill, width=width,
                                            font=font, font_size=font_size)
@@ -200,40 +201,25 @@ def show_pred_true_boxes(image,
     # Return result
     return boxes_confident, labels_confident, scores_confident, ious_confident
 
-def transform_bbox_to_original(bbox, in_format,
-                               normalized=False, original_w=None, original_h=None):
-    """
-    Transform predicted bounding box to original PyTorch Format
-
-    Parameters
-    ----------
-    bbox : List[float, float, float, float]
-        Input bounding box
-    in_format : {'xyxy', 'centerxywh', 'xywh'}
-        Predicted bounding box formats
-        'xyxy': [xmin, ymin, xmax, ymax] (Pascal VOC)
-        'centerxywh': [x_c, y_c, w, h] (YOLO, Facebook DETR)
-        'xywh': [x_min, y_min, w, h] (COCO)
-        https://keras.io/api/keras_cv/bounding_box/formats/
-    normalized : bool
-        If True, the bounding box size is converted from the normalized scale to the original image scale.
-    original_w : int
-        Original image width (Used only if `normalized` is True)
-    original_h : int
-        Original image height (Used only if `normalized` is True)
-    """
-    pass
-
 def show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class,
                                        max_displayed_images=None, score_threshold=0.5):
     """
-    Show predicted minibatch
+    Show predicted minibatch images with bounding boxes.
 
     Parameters
     ----------
-    dataloader : DataLoader
-        DataLoader for predicted data
-        Predicted bounding box
+    imgs : List[torch.Tensor (C x H x W)]
+        List of the images which are standardized to [0, 1]
+    
+    predictions : Dict[str, Any] (TorchVision Format)
+        List of the prediction result (including 'boxes', 'labels' and 'scores')
+    
+    targets : Dict[str, Any] (TorchVision Format)
+        List of the ground truths (including 'boxes', 'labels' and 'scores')
+    
+    idx_to_class : Dict[int, str]
+        A dict for converting class IDs to class names.
+        If None, class ID is used for the plot
     """
     for i, (img, prediction, target) in enumerate(zip(imgs, predictions, targets)):
         img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]
