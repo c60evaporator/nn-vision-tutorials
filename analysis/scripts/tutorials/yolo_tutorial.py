@@ -246,7 +246,7 @@ predictions = convert_yolov8_hub_result(results)
 # Show predicted images
 show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class, max_displayed_images=NUM_DISPLAYED_IMAGES)
 
-#%% coco128(Convert YOLO to COCO format) + YOLOX
+#%% mini-coco128 + YOLOX
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -291,25 +291,25 @@ torch.manual_seed(SEED)
 # Print device count
 print(f'device_count={torch.cuda.device_count()}')
 
-###### 1. Create dataset & Preprocessing (The same as YOLOv5) ######
-# Download dataset yaml file
-res = requests.get(DATA_YAML_URL, allow_redirects=True)
-yaml_path = f'{DATA_SAVE_ROOT}/{DATA_YAML_URL.split("/")[-1]}'
-open(yaml_path, 'wb').write(res.content)
-with open(yaml_path, 'r') as file:
-    dataset_yml = yaml.safe_load(file)
-dataset_url = dataset_yml['download']
-# Download dataset (https://www.tutorialspoint.com/downloading-files-from-web-using-python)
-res = requests.get(dataset_url, allow_redirects=True)
-zip_path = f'{DATA_SAVE_ROOT}/{dataset_url.split("/")[-1]}'
-open(zip_path, 'wb').write(res.content)
-data_dir = os.path.splitext(zip_path)[0]
-# Unzip dataset
-with ZipFile(zip_path, 'r') as z:
-    z.extractall(path=DATA_SAVE_ROOT)
+###### 1. Create dataset & Preprocessing######
+# # Download dataset yaml file
+# res = requests.get(DATA_YAML_URL, allow_redirects=True)
+# yaml_path = f'{DATA_SAVE_ROOT}/{DATA_YAML_URL.split("/")[-1]}'
+# open(yaml_path, 'wb').write(res.content)
+# with open(yaml_path, 'r') as file:
+#     dataset_yml = yaml.safe_load(file)
+# dataset_url = dataset_yml['download']
+# # Download dataset (https://www.tutorialspoint.com/downloading-files-from-web-using-python)
+# res = requests.get(dataset_url, allow_redirects=True)
+# zip_path = f'{DATA_SAVE_ROOT}/{dataset_url.split("/")[-1]}'
+# open(zip_path, 'wb').write(res.content)
+# data_dir = os.path.splitext(zip_path)[0]
+# # Unzip dataset
+# with ZipFile(zip_path, 'r') as z:
+#     z.extractall(path=DATA_SAVE_ROOT)
 
-# Convert the dataset to COCO format
-convert_yolo2coco(yolo_yaml=yaml_path, yolo_root_dir=f'{DATA_SAVE_ROOT}/coco128', output_dir=f'{DATA_SAVE_ROOT}/coco128_coco')
+# # Convert the dataset to COCO format
+# convert_yolo2coco(yolo_yaml=yaml_path, yolo_root_dir=f'{DATA_SAVE_ROOT}/coco128', output_dir=f'{DATA_SAVE_ROOT}/coco128_coco')
 
 # Define display loader
 display_transform = transforms.Compose([
@@ -317,8 +317,8 @@ display_transform = transforms.Compose([
 ])
 def collate_fn(batch):
     return tuple(zip(*batch))
-display_dataset = CocoDetectionTV(root = f'{DATA_SAVE_ROOT}/coco128_coco/train',
-                                  annFile = f'{DATA_SAVE_ROOT}/coco128_coco/annotations/train.json',
+display_dataset = CocoDetectionTV(root = f'{DATA_SAVE_ROOT}/mini-coco128/train2017',
+                                  annFile = f'{DATA_SAVE_ROOT}/mini-coco128/annotations/instances_train2017.json',
                                   transform=display_transform)
 display_loader = DataLoader(display_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS, collate_fn=collate_fn)
 # Define class names
@@ -350,14 +350,14 @@ start = time.time()  # For elapsed time
 # Train (Options: https://github.com/Megvii-BaseDetection/YOLOX/blob/main/tools/train.py#L18)
 train_command = f'python3 {YOLOX_ROOT}/{TRAIN_SCRIPT_PATH} -f {EXP_SCRIPT_PATH} -d 1 -b {BATCH_SIZE} --fp16 -o -c {PRETRAINED_WEIGHT}'
 print(train_command)
-#subprocess.run(train_command, shell=True)
+subprocess.run(train_command, shell=True)
 print(f'Training complete, elapsed_time={time.time() - start}')
 # Save the weights
 result_dir = f'{RESULTS_SAVE_ROOT}/yolox/{sorted(os.listdir(f"{RESULTS_SAVE_ROOT}/yolox"))[-1]}'
 os.makedirs(f'{PARAMS_SAVE_ROOT}/yolox', exist_ok=True)
 model_weight_name = f'{os.path.basename(result_dir).split("_")[2]}_{os.path.basename(result_dir).split("_")[1]}.pth'
 print(model_weight_name)
-shutil.copy(f'{result_dir}/latest_ckpt.pth', f'{PARAMS_SAVE_ROOT}/yolox/{model_weight_name}')
+shutil.copy(f'{result_dir}/best_ckpt.pth', f'{PARAMS_SAVE_ROOT}/yolox/{model_weight_name}')
 
 ###### 5. Model evaluation and visualization ######
 # Get YOLOX experiment
@@ -365,8 +365,8 @@ from configs.yolox_exp_inference import Exp
 experiment = Exp()
 # Load validation dataset
 val_transform = transforms.Lambda(lambda x: val_transform_to_yolox(x, experiment.test_size))
-val_dataset = CocoDetectionTV(root = f'{DATA_SAVE_ROOT}/coco128_coco/val',
-                              annFile = f'{DATA_SAVE_ROOT}/coco128_coco/annotations/val.json')
+val_dataset = CocoDetectionTV(root = f'{DATA_SAVE_ROOT}/mini-coco128/val2017',
+                              annFile = f'{DATA_SAVE_ROOT}/mini-coco128/annotations/instances_val2017.json')
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS, collate_fn=collate_fn)
 ###### Inference in the first mini-batch ######
 # Load the model (https://www.kaggle.com/code/max237/getting-started-with-yolox-inference-only)
@@ -384,11 +384,6 @@ model_trained.load_state_dict(best_weights['model'])
 # Load the first mini-batch
 val_iter = iter(val_loader)
 imgs, targets = next(val_iter)
-##################### TODO:あとで消す
-#from PIL import Image
-#imgs = [Image.open('/scripts/tutorials/datasets/dog.jpg')]
-#targets = [{'boxes': torch.zeros(size=(0, 4)), 'labels': torch.tensor([]), 'scores': torch.tensor([])}]
-##################### TODO:あとで消す
 imgs_transformed = [val_transform(img) for img in imgs]
 imgs_gpu = [img.to(device) for img in imgs_transformed]
 # Inference (https://github.com/Megvii-BaseDetection/YOLOX/blob/main/tools/demo.py#L132)

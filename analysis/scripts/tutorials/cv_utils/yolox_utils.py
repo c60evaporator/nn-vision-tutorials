@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, Dict, Any
 import time
 import numpy as np
 import torch
@@ -23,6 +23,7 @@ def val_transform_to_yolox(img: Image, input_size: Tuple, swap=(2, 0, 1)):
 
 def inference(img: torch.Tensor, model: torch.nn.Module, experiment: Exp,
               conf_threshold=None, nms_threshold=None):
+    """Run YOLOX Inference"""
     conf_thre = experiment.test_conf if conf_threshold is None else conf_threshold
     nms_thre = experiment.nmsthre if nms_threshold is None else nms_threshold
     with torch.no_grad():
@@ -38,6 +39,7 @@ def inference(img: torch.Tensor, model: torch.nn.Module, experiment: Exp,
     return outputs
 
 def get_img_info(img: Image, input_size: Tuple):
+    """Get YOLOX img_info"""
     img_info = {"id": 0}
     width, height = img.size
     img_info["height"] = height
