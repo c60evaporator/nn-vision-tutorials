@@ -74,7 +74,10 @@ def show_segmentations(image, target,
     # Display Segmentations
     segmentation_img = _array1d_to_pil_image(target, palette, bg_idx, border_idx)
     ax.imshow(segmentation_img, alpha=alpha)
+    
     # Add Ledgends
     
 
     #image_with_boxes = image_with_boxes.permute(1, 2, 0)  # Change axis order from (ch, x, y) to (x, y, ch)
+
+# TODO: 横にraw画像表示させる関数作る
