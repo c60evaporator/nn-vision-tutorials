@@ -16,7 +16,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from torch_extend.detection.dataset import YoloDetectionTV
-from torch_extend.detection.result_converter import convert_yolov5_hub_result
+from torch_extend.detection.torchhub_utils import convert_yolov5_hub_result
 from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch
 
 SEED = 42

@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch
 from torch_extend.detection.target_converter import resize_target
 from torch_extend.detection.dataset import CocoDetectionTV
-from torch_extend.detection.result_converter import convert_detr_hub_result
+from torch_extend.detection.torchhub_utils import convert_detr_hub_result
 
 SEED = 42
 BATCH_SIZE = 2  # Batch size

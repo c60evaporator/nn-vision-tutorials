@@ -1,5 +1,4 @@
 import torch
-from torchvision import ops
 from torchvision.utils import draw_bounding_boxes
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -7,39 +6,7 @@ import copy
 import math
 import numpy as np
 
-def get_object_detection_iou(box_pred, label_pred, boxes_true, labels_true,
-            match_label=True):
-    """
-    Calculate IoU
-    https://learnopencv.com/intersection-over-union-iou-in-object-detection-and-segmentation/
-    """
-    # If the label should be matched
-    if match_label:
-        boxes_gt = []
-        labels_gt = []
-        for box_true, label_true in zip(boxes_true, labels_true):
-            if label_true == label_pred:
-                boxes_gt.append(box_true)
-                labels_gt.append(label_true)
-    # If the label should NOT be matched
-    else:
-        boxes_gt = copy.deepcopy(boxes_true)
-        labels_gt = copy.deepcopy(labels_true)
-
-    # Calculate IoU with every ground truth bbox
-    ious = []
-    for box_true, label_true in zip(boxes_gt, labels_gt):
-        box_true = box_true.view(1, -1)
-        box_pred = box_pred.view(1, -1)
-        iou = float(ops.box_iou(box_true, box_pred))
-        ious.append(iou)
-
-    # Extract max IoU
-    if len(ious) > 0:
-        max_iou = max(ious)
-    else:
-        max_iou = 0.0
-    return max_iou
+from .metrics import iou_object_detection
 
 def show_bounding_boxes(image, boxes, labels=None, idx_to_class=None,
                         colors=None, fill=False, width=1,
@@ -174,7 +141,7 @@ def show_pred_true_boxes(image,
     if calc_iou:
         ious_confident = []
         for box_pred, label_pred in zip(boxes_confident, labels_confident):
-            ious_confident.append(get_object_detection_iou(box_pred, label_pred, boxes_true, labels_true))
+            ious_confident.append(iou_object_detection(box_pred, label_pred, boxes_true, labels_true))
     else:
         ious_confident = [float('nan')] * len(boxes_pred)
     # Display predicted boxes
