@@ -266,7 +266,6 @@ def average_precisions_torchvison(dataloader: DataLoader, model: nn.Module, devi
     aps : Dict[int, Dict[Literal['label_name', 'average_precision', 'precision', 'recall'], Any]]
         Calculated average precisions with the label_names and the PR Curve
     """
-    avg_precisions = {}
     # Predict
     targets_list = []
     predictions_list = []

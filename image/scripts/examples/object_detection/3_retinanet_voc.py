@@ -12,8 +12,9 @@ import math
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch
+from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch, show_average_precisions
 from torch_extend.detection.target_converter import target_transform_to_torchvision
+from torch_extend.detection.metrics import average_precisions_torchvison
 
 SEED = 42
 BATCH_SIZE = 2  # Batch size
@@ -191,5 +192,10 @@ idx_to_class_bg = {k: v for k, v in idx_to_class.items()}
 idx_to_class_bg[-1] = 'background'
 
 show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class_bg, max_displayed_images=NUM_DISPLAYED_IMAGES)
+
+#%%
+###### Calculate mAP ######
+aps = average_precisions_torchvison(val_loader, model, device, idx_to_class_bg, conf_threshold=0.2)
+show_average_precisions(aps)
 
 # %%

@@ -17,7 +17,8 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from torch_extend.detection.dataset import YoloDetectionTV
 from torch_extend.detection.torchhub_utils import convert_yolov8_hub_result
-from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch
+from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch, show_average_precisions
+from torch_extend.detection.metrics import average_precisions
 
 SEED = 42
 BATCH_SIZE = 16  # Batch size
@@ -120,8 +121,28 @@ results[0].show()
 get_ipython().magic('matplotlib inline')  # Matplotlib inline should be enabled to show plots after commiting YOLO inference
 # Convert the Results to Torchvision object detection prediction format
 predictions = convert_yolov8_hub_result(results)
-
+# Class names dict with background
+idx_to_class_bg = {k: v for k, v in idx_to_class.items()}
+idx_to_class_bg[-1] = 'background'
 # Show predicted images
-show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class, max_displayed_images=NUM_DISPLAYED_IMAGES)
+show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class_bg, max_displayed_images=NUM_DISPLAYED_IMAGES)
+
+#%%
+###### Calculate mAP ######
+targets_list = []
+predictions_list = []
+start = time.time()  # For elapsed time
+for i, (imgs, targets) in enumerate(val_loader):
+    image_fps = [target['image_path'] for target in targets]
+    results = model_trained(image_fps)
+    predictions = convert_yolov8_hub_result(results)
+    # Store the result
+    targets_list.extend(targets)
+    predictions_list.extend(predictions)
+    if i%100 == 0:  # Show progress every 100 images
+        print(f'Prediction for mAP: {i}/{len(val_loader)} batches, elapsed_time: {time.time() - start}')
+aps = average_precisions(predictions_list, targets_list, idx_to_class_bg, iou_threshold=0.5, conf_threshold=0.2)
+# Show mAP
+show_average_precisions(aps)
 
 # %%
