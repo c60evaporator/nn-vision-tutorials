@@ -227,7 +227,7 @@ def show_average_precisions(aps: Dict[int, Dict[Literal['label_name', 'average_p
         # Show each label's PR Curve and average precision
         fig, ax = plt.subplots(1, 1, figsize=(4, 4))
         ax.plot(np.append(v['recall'], 1.0), np.append(v['precision'], 0.0))
-        ax.set_title(f"{v['label_name']}, index={k}")
+        ax.set_title(f"{v['label_name']}, index={int(k)}")
         ax.set_xlim(0, 1.1)
         ax.set_ylim(0, 1.1)
         ax.text(1.08, 1.08,
