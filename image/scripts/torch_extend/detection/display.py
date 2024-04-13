@@ -1,3 +1,4 @@
+from typing import Dict, Literal, Any
 import torch
 from torchvision.utils import draw_bounding_boxes
 import matplotlib.pyplot as plt
@@ -59,7 +60,7 @@ def show_pred_true_boxes(image,
                          boxes_true, labels_true,
                          idx_to_class = None,
                          color_true = 'green', color_pred = 'red', ax=None,
-                         scores=None, score_threshold=0.0, score_decimal=3,
+                         scores=None, conf_threshold=0.0, score_decimal=3,
                          calc_iou=False, iou_decimal=3):
     """
     Show the true bounding boxes and the predicted bounding boxes
@@ -86,11 +87,11 @@ def show_pred_true_boxes(image,
     scores : torch.Tensor (N_boxes_pred)
         Confidence scores for the predicted bounding boxes.
         
-        If None, the confidence scores are not displayed and score_threshold is not applied. 
-    score_threshold : float
+        If None, the confidence scores are not displayed and conf_threshold is not applied. 
+    conf_threshold : float
         A threshold of the confidence score for selecting predicted bounding boxes shown.
         
-        If True, predicted bounding boxes whose confidence score is higher than the score_threshold are displayed.
+        If True, predicted bounding boxes whose confidence score is higher than the conf_threshold are displayed.
 
         If False, all predicted bounding boxes are displayed.
     score_decimal : str
@@ -121,10 +122,10 @@ def show_pred_true_boxes(image,
         ax.add_patch(r)
         plt.text(box_true[0], box_true[1], label_true, color=color_true, fontsize=8)
 
-    # Extract predicted boxes whose score > score_threshold
+    # Extract predicted boxes whose score > conf_threshold
     if scores is not None:
         boxes_confident, labels_confident, scores_confident = extract_cofident_boxes(
-                scores, boxes_pred, labels_pred, score_threshold)
+                scores, boxes_pred, labels_pred, conf_threshold)
         print(f'Confident boxes={boxes_confident}, labels={labels_confident}')
     # Extract all predicted boxes if score is not set
     else:
@@ -161,7 +162,7 @@ def show_pred_true_boxes(image,
     return boxes_confident, labels_confident, scores_confident, ious_confident
 
 def show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class,
-                                       max_displayed_images=None, score_threshold=0.5):
+                                       max_displayed_images=None, conf_threshold=0.5):
     """
     Show predicted minibatch images with bounding boxes.
 
@@ -194,15 +195,54 @@ def show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class,
         show_bounding_boxes(img, boxes, labels=labels, idx_to_class=idx_to_class)
         plt.title('All bounding boxes')
         plt.show()
-        # Show Pred bounding boxes whose confidence score > score_threshold with True boxes
+        # Show Pred bounding boxes whose confidence score > conf_threshold with True boxes
         boxes_true = target['boxes']
         labels_true = target['labels']
         boxes_confident, labels_confident, scores_confident, ious_confident = \
             show_pred_true_boxes(img, boxes, labels, boxes_true, labels_true,
                                 idx_to_class=idx_to_class,
-                                scores=scores, score_threshold=score_threshold,
+                                scores=scores, conf_threshold=conf_threshold,
                                 calc_iou=True)
         plt.title('Confident bounding boxes')
         plt.show()
         if max_displayed_images is not None and i >= max_displayed_images - 1:
             break
+
+def show_average_precisions(aps: Dict[int, Dict[Literal['label_name', 'average_precision', 'precision', 'recall'], Any]],
+                            score_decimal: int=3):
+    """
+    Calculate average precisions with TorchVision models and DataLoader
+
+    Parameters
+    ----------
+    aps : Dict[int, Dict[Literal['label_name', 'average_precision', 'precision', 'recall'], Any]]
+        Average precisions that is calculated by `average_precisions()` function
+
+    score_decimal : str
+        A decimal for the displayed average precision.
+    """
+    fig_mean, ax_mean = plt.subplots(1, 1, figsize=(8, 8))
+
+    for k, v in aps.items():
+        # Show each label's PR Curve and average precision
+        fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+        ax.plot(np.append(v['recall'], 1.0), np.append(v['precision'], 0.0))
+        ax.set_title(f"{v['label_name']}, index={k}")
+        ax.set_xlim(0, 1.1)
+        ax.set_ylim(0, 1.1)
+        ax.text(1.08, 1.08,
+                f"AP={round(v['average_precision'], score_decimal)}",
+                verticalalignment='top', horizontalalignment='right')
+        fig.show()
+        # Plot PR Curve on the mean average precision graph
+        ax_mean.plot(np.append(v['recall'], 1.0), np.append(v['precision'], 0.0), label=v['label_name'])
+
+    mean_average_precision = np.mean([v['average_precision'] for v in aps.values()])
+    ax_mean.set_title('mean Average Precision (mAP)')
+    ax_mean.set_xlim(0, 1.1)
+    ax_mean.set_ylim(0, 1.1)
+    ax_mean.text(1.08, 1.08,
+                 f"mAP={round(mean_average_precision, score_decimal)}",
+                 verticalalignment='top', horizontalalignment='right')
+    ax_mean.legend()
+    fig_mean.show()
