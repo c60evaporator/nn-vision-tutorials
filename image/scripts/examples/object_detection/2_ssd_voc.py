@@ -11,12 +11,13 @@ import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch
+from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch, show_average_precisions
 from torch_extend.detection.target_converter import target_transform_to_torchvision
+from torch_extend.detection.metrics import average_precisions_torchvison
 
 SEED = 42
 BATCH_SIZE = 2  # Batch size
-NUM_EPOCHS = 3  # number of epochs
+NUM_EPOCHS = 1  # number of epochs
 NUM_DISPLAYED_IMAGES = 10  # number of displayed images
 NUM_LOAD_WORKERS = 2  # Number of workers for DataLoader (Multiple workers not work in original dataset)
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
@@ -177,12 +178,17 @@ model.load_state_dict(params)
 val_iter = iter(val_loader)
 imgs, targets = next(val_iter)
 imgs_gpu = [img.to(device) for img in imgs]
-model.eval()  # Set the evaluation smode
+model.eval()  # Set the evaluation mode
 predictions = model(imgs_gpu)
 # Class names dict with background
 idx_to_class_bg = {k: v for k, v in idx_to_class.items()}
-idx_to_class_bg[-1] = ['background']
+idx_to_class_bg[-1] = 'background'
 
 show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class_bg, max_displayed_images=NUM_DISPLAYED_IMAGES)
+
+#%%
+###### Calculate mAP ######
+aps = average_precisions_torchvison(val_loader, model, device, idx_to_class_bg, conf_threshold=0.2)
+show_average_precisions(aps)
 
 # %%

@@ -18,6 +18,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from torch_extend.detection.dataset import YoloDetectionTV
 from torch_extend.detection.torchhub_utils import convert_yolov5_hub_result
 from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch
+from torch_extend.detection.metrics import average_precisions_torchvison
 
 SEED = 42
 BATCH_SIZE = 16  # Batch size
@@ -122,5 +123,8 @@ predictions = convert_yolov5_hub_result(results)
 
 # Show predicted images
 show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class, max_displayed_images=NUM_DISPLAYED_IMAGES)
+
+###### Calculate mAP ######
+
 
 # %%

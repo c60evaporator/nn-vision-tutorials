@@ -16,7 +16,7 @@ from torch_extend.detection.target_converter import target_transform_to_torchvis
 
 SEED = 42
 BATCH_SIZE = 2  # Batch size
-NUM_EPOCHS = 1  # number of epochs
+NUM_EPOCHS = 2  # number of epochs
 NUM_DISPLAYED_IMAGES = 10  # number of displayed images
 NUM_LOAD_WORKERS = 2  # Number of workers for DataLoader (Multiple workers not work in original dataset)
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
@@ -181,11 +181,11 @@ model.load_state_dict(params)
 val_iter = iter(val_loader)
 imgs, targets = next(val_iter)
 imgs_gpu = [img.to(device) for img in imgs]
-model.eval()  # Set the evaluation smode
+model.eval()  # Set the evaluation mode
 predictions = model(imgs_gpu)
 # Class names dict with background
 idx_to_class_bg = {k: v for k, v in idx_to_class.items()}
-idx_to_class_bg[-1] = ['background']
+idx_to_class_bg[-1] = 'background'
 
 show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class_bg, max_displayed_images=NUM_DISPLAYED_IMAGES)
 

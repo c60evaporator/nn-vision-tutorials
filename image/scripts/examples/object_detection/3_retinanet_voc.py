@@ -188,7 +188,7 @@ model.eval()  # Set the evaluation smode
 predictions = model(imgs_gpu)
 # Class names dict with background
 idx_to_class_bg = {k: v for k, v in idx_to_class.items()}
-idx_to_class_bg[-1] = ['background']
+idx_to_class_bg[-1] = 'background'
 
 show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class_bg, max_displayed_images=NUM_DISPLAYED_IMAGES)
 
