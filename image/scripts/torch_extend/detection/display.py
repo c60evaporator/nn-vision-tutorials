@@ -6,7 +6,7 @@ import copy
 import math
 import numpy as np
 
-from .metrics import iou_object_detection
+from .metrics import iou_object_detection, extract_cofident_boxes
 
 def show_bounding_boxes(image, boxes, labels=None, idx_to_class=None,
                         colors=None, fill=False, width=1,
@@ -86,7 +86,7 @@ def show_pred_true_boxes(image,
     scores : torch.Tensor (N_boxes_pred)
         Confidence scores for the predicted bounding boxes.
         
-        If None, the confidence scores are not displayed and score_threshold are not applied. 
+        If None, the confidence scores are not displayed and score_threshold is not applied. 
     score_threshold : float
         A threshold of the confidence score for selecting predicted bounding boxes shown.
         
@@ -123,14 +123,8 @@ def show_pred_true_boxes(image,
 
     # Extract predicted boxes whose score > score_threshold
     if scores is not None:
-        boxes_confident = []
-        labels_confident = []
-        scores_confident = []
-        for score, box, label in zip(scores, boxes_pred.tolist(), labels_pred):
-            if score > score_threshold:
-                labels_confident.append(label)
-                boxes_confident.append(torch.Tensor(box))
-                scores_confident.append(score)
+        boxes_confident, labels_confident, scores_confident = extract_cofident_boxes(
+                scores, boxes_pred, labels_pred, score_threshold)
         print(f'Confident boxes={boxes_confident}, labels={labels_confident}')
     # Extract all predicted boxes if score is not set
     else:
@@ -139,9 +133,10 @@ def show_pred_true_boxes(image,
         scores_confident = [float('nan')] * len(boxes_pred)
     # Calculate IoU
     if calc_iou:
-        ious_confident = []
-        for box_pred, label_pred in zip(boxes_confident, labels_confident):
-            ious_confident.append(iou_object_detection(box_pred, label_pred, boxes_true, labels_true))
+        ious_confident = [
+            iou_object_detection(box_pred, label_pred, boxes_true, labels_true)
+            for box_pred, label_pred in zip(boxes_confident, labels_confident)
+        ]
     else:
         ious_confident = [float('nan')] * len(boxes_pred)
     # Display predicted boxes
@@ -176,10 +171,10 @@ def show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class,
         List of the images which are standardized to [0, 1]
     
     predictions : Dict[str, Any] (TorchVision Format)
-        List of the prediction result (including 'boxes', 'labels' and 'scores')
+        List of the prediction result (including 'boxes', 'labels', and 'scores')
     
     targets : Dict[str, Any] (TorchVision Format)
-        List of the ground truths (including 'boxes', 'labels' and 'scores')
+        List of the ground truths (including 'boxes', 'labels', and 'scores')
     
     idx_to_class : Dict[int, str]
         A dict for converting class IDs to class names.
