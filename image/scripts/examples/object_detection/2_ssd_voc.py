@@ -173,7 +173,7 @@ torch.save(params, f'{PARAMS_SAVE_ROOT}/pascalvoc_ssd_transfer.prm')
 ###### Inference in the first mini-batch ######
 # Reload parameters
 params_load = torch.load(f'{PARAMS_SAVE_ROOT}/pascalvoc_ssd_transfer.prm')
-model.load_state_dict(params)
+model.load_state_dict(params_load)
 # Inference
 val_iter = iter(val_loader)
 imgs, targets = next(val_iter)
