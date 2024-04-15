@@ -12,10 +12,13 @@ import sys
 from configs.yolox_exp_train import Exp
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from torch_extend.detection.yolox_utils import val_transform_to_yolox, convert_yolox_result_to_torchvision, inference, get_img_info
+from torch_extend.detection.yolox_utils import val_transform_to_yolox, convert_yolox_result_to_torchvision, inference, get_img_info, train
 from torch_extend.detection.dataset import CocoDetectionTV
 from torch_extend.detection.data_converter import convert_yolo2coco
-from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch
+from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch, show_average_precisions
+from torch_extend.detection.metrics import average_precisions
+
+TRAIN_BY_COMMAND = False  # If True, use the console command for the training. If False use the function for the training
 
 SEED = 42
 BATCH_SIZE = 16  # Batch size
@@ -96,10 +99,16 @@ for i, (img, target) in enumerate(zip(imgs, targets)):
 # Reference (https://github.com/Megvii-BaseDetection/YOLOX/blob/main/docs/train_custom_data.md#3-train)
 # Note: the format of the training dataset should be YOLO format
 start = time.time()  # For elapsed time
-# Train (Options: https://github.com/Megvii-BaseDetection/YOLOX/blob/main/tools/train.py#L18)
-train_command = f'python3 {YOLOX_ROOT}/{TRAIN_SCRIPT_PATH} -f {EXP_SCRIPT_PATH} -d 1 -b {BATCH_SIZE} --fp16 -o -c {PRETRAINED_WEIGHT}'
-print(train_command)
-subprocess.run(train_command, shell=True)
+
+if TRAIN_BY_COMMAND:
+    # Train by console command
+    train_command = f'python3 {YOLOX_ROOT}/{TRAIN_SCRIPT_PATH} -f {EXP_SCRIPT_PATH} -d 1 -b {BATCH_SIZE} --fp16 -o -c {PRETRAINED_WEIGHT}'
+    print(train_command)
+    subprocess.run(train_command, shell=True)
+else:
+    # Train by the function
+    train(exp_file=EXP_SCRIPT_PATH, devices=1, batch_size=BATCH_SIZE, fp16=True, occupy=True, ckpt=PRETRAINED_WEIGHT)
+
 print(f'Training complete, elapsed_time={time.time() - start}')
 # Save the weights
 result_dir = f'{RESULTS_SAVE_ROOT}/yolox/{sorted(os.listdir(f"{RESULTS_SAVE_ROOT}/yolox"))[-1]}'
@@ -117,6 +126,7 @@ val_transform = transforms.Lambda(lambda x: val_transform_to_yolox(x, experiment
 val_dataset = CocoDetectionTV(root = f'{DATA_SAVE_ROOT}/mini-coco128/val2017',
                               annFile = f'{DATA_SAVE_ROOT}/mini-coco128/annotations/instances_val2017.json')
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS, collate_fn=collate_fn)
+
 ###### Inference in the first mini-batch ######
 # Load the model (https://www.kaggle.com/code/max237/getting-started-with-yolox-inference-only)
 model_trained = experiment.get_model()
@@ -143,8 +153,35 @@ for img in imgs_gpu:
 # Convert the Results to Torchvision object detection prediction format
 imgs_info = [get_img_info(img, experiment.test_size) for img in imgs]
 predictions = convert_yolox_result_to_torchvision(results, imgs_info)
+# Class names dict with background
+idx_to_class_bg = {k: v for k, v in idx_to_class.items()}
+idx_to_class_bg[-1] = 'background'
 # Show predicted images
 imgs_display = [display_transform(img) for img in imgs]
 show_predicted_detection_minibatch(imgs_display, predictions, targets, idx_to_class, max_displayed_images=NUM_DISPLAYED_IMAGES)
+
+#%%
+###### Calculate mAP ######
+targets_list = []
+predictions_list = []
+start = time.time()  # For elapsed time
+for i, (imgs, targets) in enumerate(val_loader):
+    imgs_transformed = [val_transform(img) for img in imgs]
+    imgs_gpu = [img.to(device) for img in imgs_transformed]
+    # Inference
+    results = []
+    for img in imgs_gpu:
+        outputs = inference(img, model_trained, experiment)
+        results.append(outputs)
+    # Convert the Results to Torchvision object detection prediction format
+    predictions = convert_yolox_result_to_torchvision(results, imgs_info)
+    # Store the result
+    targets_list.extend(targets)
+    predictions_list.extend(predictions)
+    if i%100 == 0:  # Show progress every 100 images
+        print(f'Prediction for mAP: {i}/{len(val_loader)} batches, elapsed_time: {time.time() - start}')
+aps = average_precisions(predictions_list, targets_list, idx_to_class_bg, iou_threshold=0.5, conf_threshold=0.2)
+# Show mAP
+show_average_precisions(aps)
 
 # %%
