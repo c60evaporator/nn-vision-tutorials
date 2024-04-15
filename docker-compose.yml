@@ -11,7 +11,7 @@ services:
       args:
         - USRPASSWD=${IMAGE_USRPASSWD}
     environment:
-      - PYTHONPATH=/repos/YOLOX # Avoid NoduleNotFoundError of YOLOX (https://github.com/Megvii-BaseDetection/YOLOX/issues/154) 
+      - PYTHONPATH=/repos/YOLOX:/repos/detr:$PYTHONPATH # Avoid NoduleNotFoundError of YOLOX (https://github.com/Megvii-BaseDetection/YOLOX/issues/154) 
     volumes:
       # Share the volumes between external folder and internal container
       - $PWD/image/scripts:/scripts  # Scripts

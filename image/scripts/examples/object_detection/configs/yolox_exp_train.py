@@ -76,6 +76,7 @@ class Exp(MyExp):
         from yolox.utils import freeze_module
         model = super().get_model()
         if FREEZE_BACKBONE:
+            print('The backbone is freezed')
             freeze_module(model.backbone)
         return model
     

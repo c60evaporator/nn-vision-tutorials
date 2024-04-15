@@ -23,7 +23,7 @@ NUM_LOAD_WORKERS = 2  # Number of workers for DataLoader (Multiple workers not w
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
 DATA_SAVE_ROOT = '/scripts/examples/object_detection/datasets'  # Directory for Saved dataset
 PARAMS_SAVE_ROOT = '/scripts/examples/object_detection/params'  # Directory for Saved parameters
-FREEZE_PRETRAINED = False  # If True, Freeze pretrained parameters (Transfer learning)
+FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
 CLASS_TO_IDX = {
     'person': 0,
     'bird': 1,

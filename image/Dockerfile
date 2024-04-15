@@ -42,7 +42,10 @@ RUN apt install -y libgl1 \
     && DEBIAN_FRONTEND=noninteractive apt install keyboard-configuration -y \
     && apt install -y libglib2.0-0
 
-
+# Install DETR
+WORKDIR /repos
+RUN git clone https://github.com/facebookresearch/detr.git
+RUN pip install cython
 
 ###### Semantic Segmentation ######
 # Install segmentation_models.pytorch (https://github.com/qubvel/segmentation_models.pytorch)
