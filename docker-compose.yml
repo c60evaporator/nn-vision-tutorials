@@ -6,12 +6,12 @@ services:
     image: pytorch_image # Specify the image name
     build:
       context: $PWD/image
-      shm_size: '8gb'  # Increase shared memory size for NN Training
+      shm_size: '16gb'  # Increase shared memory size for NN Training
       dockerfile: Dockerfile
       args:
         - USRPASSWD=${IMAGE_USRPASSWD}
     environment:
-      - PYTHONPATH=/repos/YOLOX:/repos/detr:$PYTHONPATH # Avoid NoduleNotFoundError of YOLOX (https://github.com/Megvii-BaseDetection/YOLOX/issues/154) 
+      - PYTHONPATH=/repos/YOLOX:/repos/DETR/detr:$PYTHONPATH  # YOLOX and DETR Installation folder (Not necessary. Only for autocomplete)
     volumes:
       # Share the volumes between external folder and internal container
       - $PWD/image/scripts:/scripts  # Scripts
@@ -25,7 +25,7 @@ services:
     # gpu support
     runtime: nvidia
     # Increase shared memory size for NN Training (https://github.com/pytorch/pytorch/issues/5040)
-    shm_size: '8gb'
+    shm_size: '16gb'
     # Startup command
     command:
       bash

@@ -43,7 +43,8 @@ RUN apt install -y libgl1 \
     && apt install -y libglib2.0-0
 
 # Install DETR
-WORKDIR /repos
+RUN mkdir /repos/DETR
+WORKDIR /repos/DETR
 RUN git clone https://github.com/facebookresearch/detr.git
 RUN pip install cython
 

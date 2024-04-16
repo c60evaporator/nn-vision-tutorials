@@ -4,25 +4,29 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.transforms.functional import to_tensor
 import matplotlib.pyplot as plt
+import time
 from IPython import get_ipython
 import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from torch_extend.detection.detr_utils import train
 from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch
 from torch_extend.detection.target_converter import resize_target
 from torch_extend.detection.dataset import CocoDetectionTV
 from torch_extend.detection.torchhub_utils import convert_detr_hub_result
 
 SEED = 42
-BATCH_SIZE = 2  # Batch size
-NUM_EPOCHS = 3  # number of epochs
+BATCH_SIZE = 1  # Batch size
+NUM_EPOCHS = 10  # number of epochs
 NUM_DISPLAYED_IMAGES = 10  # number of displayed images
-NUM_LOAD_WORKERS = 0  # Number of workers for DataLoader (Multiple workers need much memory, so if the error "RuntimeError: DataLoader worker (pid ) is killed by signal" occurs, you should set it 0)
+NUM_LOAD_WORKERS = 2  # Number of workers for DataLoader (Multiple workers need much memory, so if the error "RuntimeError: DataLoader worker (pid ) is killed by signal" occurs, you should set it 0)
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
-DATA_SAVE_ROOT = '/scripts/examples/object_detection/datasets/COCO/'  # Directory for Saved dataset
+DATA_SAVE_ROOT = '/scripts/examples/object_detection/datasets'  # Directory for Saved dataset
+RESULTS_SAVE_ROOT = '/scripts/examples/object_detection/results'
 PARAMS_SAVE_ROOT = '/scripts/examples/object_detection/params'  # Directory for Saved parameters
-FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
+DETR_ROOT = '/repos/DETR/detr'  # YOLOX (Clone from https://github.com/Megvii-BaseDetection/YOLOX)
+PRETRAINED_WEIGHT = '/scripts/examples/object_detection/pretrained_weights/detr-r50-e632da11.pth'  # Pretrained weight for DETR (Download from https://github.com/facebookresearch/detr/tree/main?tab=readme-ov-file#model-zoo)
 SAME_IMG_SIZE = False  # Whether the image sizes are the same or not
 PROB_THRESHOLD = 0.8  # Threshold for the class probability
 
@@ -37,18 +41,14 @@ if DEVICE == 'cpu':
 torch.manual_seed(SEED)
 
 ###### 1. Showing dataset ######
-# Load train dataset from image folder (https://medium.com/howtoai/pytorch-torchvision-coco-dataset-b7f5e8cad82)
-# train_dataset = CocoDetection(root = f'{DATA_SAVE_ROOT}/train2017',
-#                               annFile = f'{DATA_SAVE_ROOT}/annotations/instances_train2017.json',
-#                               transform=transform, target_transform=target_transform)
 # Define display loader
 display_transform = transforms.Compose([
     transforms.ToTensor()  # Convert from range [0, 255] to a torch.FloatTensor in the range [0.0, 1.0]
 ])
 def collate_fn(batch):
     return tuple(zip(*batch))
-display_dataset = CocoDetectionTV(root = f'{DATA_SAVE_ROOT}/val2017',
-                                  annFile = f'{DATA_SAVE_ROOT}/annotations/instances_val2017.json',
+display_dataset = CocoDetectionTV(root = f'{DATA_SAVE_ROOT}/COCO/val2017',
+                                  annFile = f'{DATA_SAVE_ROOT}/COCO/annotations/instances_val2017.json',
                                   transform=display_transform)
 display_loader = DataLoader(display_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS, collate_fn=collate_fn)
 # Define class names
@@ -77,8 +77,8 @@ val_transform = transforms.Compose([
     transforms.ToTensor(),  # Convert from range [0, 255] to a torch.FloatTensor in the range [0.0, 1.0]
     transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)  # Normalization (mean and std of the imagenet dataset for normalizing)
 ])
-val_dataset = CocoDetectionTV(root = f'{DATA_SAVE_ROOT}/val2017',
-                              annFile = f'{DATA_SAVE_ROOT}/annotations/instances_val2017.json')
+val_dataset = CocoDetectionTV(root = f'{DATA_SAVE_ROOT}/COCO/val2017',
+                              annFile = f'{DATA_SAVE_ROOT}/COCO/annotations/instances_val2017.json')
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS, collate_fn=collate_fn)
 # Reverse transform for showing the image
 val_reverse_transform = transforms.Compose([
@@ -91,6 +91,15 @@ val_reverse_transform = transforms.Compose([
 ###### 3. Define Criterion & Optimizer ######
 
 ###### 4. Training ######
+start = time.time()  # For elapsed time
+# Train by the function
+os.makedirs(f'{RESULTS_SAVE_ROOT}/detr', exist_ok=True)
+train_data_path = f'{DATA_SAVE_ROOT}/mini-coco128'
+train(detr_root_path=DETR_ROOT,
+      coco_path=train_data_path, frozen_weights=PRETRAINED_WEIGHT, device=device, 
+      batch_size=BATCH_SIZE, epochs=NUM_EPOCHS, num_workers=NUM_LOAD_WORKERS,
+      output_dir=f'{RESULTS_SAVE_ROOT}/detr')
+print(f'Training complete, elapsed_time={time.time() - start}')
 
 ###### 5. Model evaluation and visualization ######
 
@@ -115,7 +124,6 @@ if SAME_IMG_SIZE: # If the image sizes are the same, inference can be conducted 
 else: # if the image sizes are different, inference should be conducted with one sample
     results = [model(img.unsqueeze(0)) for img in imgs_gpu]
     img_sizes = [img.size()[1:3] for img in imgs_transformed]
-get_ipython().magic('matplotlib inline')  # Matplotlib inline should be enabled to show plots after commiting YOLO inference
 # Convert the Results to Torchvision object detection prediction format
 predictions = convert_detr_hub_result(
     results, img_sizes=img_sizes,
