@@ -116,8 +116,7 @@ print(f'Training complete, elapsed_time={time.time() - start}')
 # Save the weights
 result_dir = f'{RESULTS_SAVE_ROOT}/yolox/{sorted(os.listdir(f"{RESULTS_SAVE_ROOT}/yolox"))[-1]}'
 os.makedirs(f'{PARAMS_SAVE_ROOT}/yolox', exist_ok=True)
-model_weight_name = f'{os.path.basename(result_dir).split("_")[2]}_{os.path.basename(result_dir).split("_")[1]}.pth'
-print(model_weight_name)
+model_weight_name = f'{os.path.basename(result_dir).split("_")[1]}_{os.path.basename(result_dir).split("_")[2]}.pth'
 shutil.copy(f'{result_dir}/best_ckpt.pth', f'{PARAMS_SAVE_ROOT}/yolox/{model_weight_name}')
 
 ###### 5. Model evaluation and visualization ######

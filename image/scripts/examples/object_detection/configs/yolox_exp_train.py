@@ -18,7 +18,7 @@ VAL_DIR = 'val2017'  # Validation directory name
 TRAIN_ANN = 'instances_train2017.json'  # Train annotation file name
 VAL_ANN = 'instances_val2017.json'  # Validation annotation file name
 TEST_ANN = '/'
-EXP_NAME = f'{datetime.now().strftime("%Y%m%d%H%M%S")}_{MODEL_TYPE}_{os.path.basename(DATA_DIR)}'
+EXP_NAME = f'{datetime.now().strftime("%Y%m%d%H%M%S")}_{os.path.basename(DATA_DIR)}_{MODEL_TYPE}'
 FREEZE_BACKBONE = True
 
 MODEL_PARAMS = {  # Please modify the parameters based on the current YOLOX

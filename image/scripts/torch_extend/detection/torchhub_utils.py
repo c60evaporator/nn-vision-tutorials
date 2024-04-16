@@ -92,7 +92,11 @@ def convert_detr_hub_result(detr_results, img_sizes, same_img_size, prob_thresho
         # バウンディングボックスの座標計算
         h, w = img_size
         boxes = [convert_bbox_centerxywh_to_xyxy(*box) for box in boxes_selected]
-        boxes = torch.tensor(boxes) * torch.tensor([w, h, w, h], dtype=float)
+        if len(boxes) > 0:
+            boxes = torch.tensor(boxes) * torch.tensor([w, h, w, h], dtype=float)
+        else:
+            boxes = torch.zeros(size=(0, 4))
+            labels = torch.tensor([])
 
         tv_pred.append({
             'boxes': boxes,
