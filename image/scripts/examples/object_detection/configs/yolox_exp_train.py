@@ -7,6 +7,7 @@ from datetime import datetime
 
 from yolox.exp import Exp as MyExp
 
+NUM_EPOCHS = 300  # number of epochs
 OUTPUT_DIR = '/scripts/examples/object_detection/results/yolox' # Training result output dir
 MODEL_TYPE = 'YOLOX-s'  # Please change the model name(See https://github.com/Megvii-BaseDetection/YOLOX/tree/main?tab=readme-ov-file#benchmark)
 NUM_CLASSES = 71  # Please input the number of classes
@@ -67,6 +68,7 @@ class Exp(MyExp):
         self.test_ann = TEST_ANN
         # --------------- transform config ----------------- #
         # --------------  training config --------------------- #
+        self.max_epoch = NUM_EPOCHS
         self.exp_name = EXP_NAME
         # -----------------  testing config ------------------ #
         if SEED is not None:
