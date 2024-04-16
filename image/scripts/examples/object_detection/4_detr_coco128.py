@@ -5,12 +5,10 @@ from torchvision import transforms
 from torchvision.transforms.functional import to_tensor
 import matplotlib.pyplot as plt
 import time
-from IPython import get_ipython
 import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from torch_extend.detection.detr_utils import train
 from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch
 from torch_extend.detection.target_converter import resize_target
 from torch_extend.detection.dataset import CocoDetectionTV
@@ -91,12 +89,14 @@ val_reverse_transform = transforms.Compose([
 ###### 3. Define Criterion & Optimizer ######
 
 ###### 4. Training ######
-start = time.time()  # For elapsed time
+# Import DETR package
+sys.path.append(DETR_ROOT)
+from torch_extend.detection.detr_utils import train
 # Train by the function
+start = time.time()  # For elapsed time
 os.makedirs(f'{RESULTS_SAVE_ROOT}/detr', exist_ok=True)
 train_data_path = f'{DATA_SAVE_ROOT}/mini-coco128'
-train(detr_root_path=DETR_ROOT,
-      coco_path=train_data_path, frozen_weights=PRETRAINED_WEIGHT, device=device, 
+train(coco_path=train_data_path, frozen_weights=PRETRAINED_WEIGHT, device=device, 
       batch_size=BATCH_SIZE, epochs=NUM_EPOCHS, num_workers=NUM_LOAD_WORKERS,
       output_dir=f'{RESULTS_SAVE_ROOT}/detr')
 print(f'Training complete, elapsed_time={time.time() - start}')

@@ -11,7 +11,7 @@ services:
       args:
         - USRPASSWD=${IMAGE_USRPASSWD}
     environment:
-      - PYTHONPATH=/repos/YOLOX:/repos/DETR/detr:$PYTHONPATH  # YOLOX and DETR Installation folder (Not necessary. Only for autocomplete)
+      - PYTHONPATH=/repos/YOLOX:$PYTHONPATH  # YOLOX and DETR Installation folder (Not necessary. Only for autocomplete)
     volumes:
       # Share the volumes between external folder and internal container
       - $PWD/image/scripts:/scripts  # Scripts

@@ -1,10 +1,8 @@
 from typing import Literal
 from pathlib import Path
 from argparse import Namespace
-import sys
 
-def train(detr_root_path: str,
-          coco_path: str, frozen_weights: str, device:Literal['cuda', 'cpu'],
+def train(coco_path: str, frozen_weights: str, device:Literal['cuda', 'cpu'],
           lr:float=1e-4, lr_backbone:float=1e-5, batch_size:int=2,
           weight_decay:float=1e-4, epochs:int=300, lr_drop:int=200,
           clip_max_norm:float=0.1,
@@ -26,8 +24,6 @@ def train(detr_root_path: str,
 
     Parameters
     ----------
-    detr_root_path : str
-        Path on which DETR is installed
     coco_path : str
         Path to the Dataset that is used for the training
     frozen_weights: str
@@ -122,7 +118,6 @@ def train(detr_root_path: str,
         url used to set up distributed training
     """
     # Load DETR package
-    sys.path.append(detr_root_path)
     from main import main
     # Create arguments instance
     args = Namespace(coco_path=coco_path, frozen_weights=frozen_weights, device=device,

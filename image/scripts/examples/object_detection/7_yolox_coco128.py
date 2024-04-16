@@ -9,10 +9,7 @@ import subprocess
 import shutil
 import sys
 
-from configs.yolox_exp_train import Exp
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from torch_extend.detection.yolox_utils import val_transform_to_yolox, convert_yolox_result_to_torchvision, inference, get_img_info, train
 from torch_extend.detection.dataset import CocoDetectionTV
 from torch_extend.detection.data_converter import convert_yolo2coco
 from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch, show_average_precisions
@@ -29,7 +26,7 @@ DATA_SAVE_ROOT = '/scripts/examples/object_detection/datasets'  # Directory for 
 RESULTS_SAVE_ROOT = '/scripts/examples/object_detection/results'
 PARAMS_SAVE_ROOT = '/scripts/examples/object_detection/params'  # Directory for Saved parameters
 DATA_YAML_URL = 'https://raw.githubusercontent.com/ultralytics/yolov5/master/data/coco128.yaml'  # coco128 data with YOLO format. The train data and the val data are the same.
-YOLOX_ROOT = '/repos/YOLOX'  # YOLOX (Clone from https://github.com/Megvii-BaseDetection/YOLOX)
+YOLOX_ROOT = '/repos/YOLOX'  # YOLOX installed path (Clone from https://github.com/Megvii-BaseDetection/YOLOX)
 EXP_SCRIPT_PATH = '/scripts/examples/object_detection/configs/yolox_exp_train.py'  # Exp file path (https://github.com/Megvii-BaseDetection/YOLOX/blob/main/docs/train_custom_data.md#2-create-your-exp-file-to-control-everything)
 TRAIN_SCRIPT_PATH = 'tools/train.py'  # Training script path (relative path from YOLOX_ROOT)
 PRETRAINED_WEIGHT = 'pretrained_weights/yolox_s.pth'  # Pretrained weight for YOLOX (Download from https://github.com/Megvii-BaseDetection/YOLOX/tree/main?tab=readme-ov-file#benchmark)
@@ -98,6 +95,12 @@ for i, (img, target) in enumerate(zip(imgs, targets)):
 ###### 4. Training ######
 # Reference (https://github.com/Megvii-BaseDetection/YOLOX/blob/main/docs/train_custom_data.md#3-train)
 # Note: the format of the training dataset should be YOLO format
+
+# Import YOLOX package
+sys.path.append(YOLOX_ROOT)
+from torch_extend.detection.yolox_utils import val_transform_to_yolox, convert_yolox_result_to_torchvision, inference, get_img_info, train
+from configs.yolox_exp_train import Exp
+
 start = time.time()  # For elapsed time
 
 if TRAIN_BY_COMMAND:
