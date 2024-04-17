@@ -2,32 +2,29 @@ from typing import Literal
 from pathlib import Path
 from argparse import Namespace
 
-def train(coco_path: str, frozen_weights: str, device:Literal['cuda', 'cpu'],
-          lr:float=1e-4, lr_backbone:float=1e-5, batch_size:int=2,
-          weight_decay:float=1e-4, epochs:int=300, lr_drop:int=200,
-          clip_max_norm:float=0.1,
-          backbone:str='resnet50', dilation:bool=True, position_embedding:Literal['sine', 'learned']='sine',
-          enc_layers:int=6, dec_layers:int=6, dim_feedforward:int=2048,
-          hidden_dim:int=256, dropout:float=0.1, nheads:int=8,
-          num_queries:int=100,
-          masks:bool=True,
-          aux_loss:bool=True,
-          set_cost_class:float=1.0, set_cost_bbox:float=5.0, set_cost_giou:float=2.0,
-          mask_loss_coef:float=1.0, dice_loss_coef:float=1.0, bbox_loss_coef:float=5.0,
-          giou_loss_coef:float=2.0, eos_coef:float=0.1,
-          dataset_file:str='coco', coco_panoptic_path:str=None, remove_difficult:bool=True,
-          output_dir:str='', seed:int=42, resume:str='',
-          start_epoch:int=0, num_workers:int=2,
-          world_size:int=1, dist_url:str='env://'):
+def train_detection(coco_path: str, device:Literal['cuda', 'cpu'],
+                    lr:float=1e-4, lr_backbone:float=1e-5, batch_size:int=2,
+                    weight_decay:float=1e-4, epochs:int=300, lr_drop:int=200,
+                    clip_max_norm:float=0.1,
+                    backbone:str='resnet50', dilation:bool=True, position_embedding:Literal['sine', 'learned']='sine',
+                    enc_layers:int=6, dec_layers:int=6, dim_feedforward:int=2048,
+                    hidden_dim:int=256, dropout:float=0.1, nheads:int=8,
+                    num_queries:int=100,
+                    aux_loss:bool=True,
+                    set_cost_class:float=1.0, set_cost_bbox:float=5.0, set_cost_giou:float=2.0,
+                    bbox_loss_coef:float=5.0,
+                    giou_loss_coef:float=2.0, eos_coef:float=0.1,
+                    dataset_file:str='coco', coco_panoptic_path:str=None, remove_difficult:bool=True,
+                    output_dir:str='', seed:int=42, resume:str='',
+                    start_epoch:int=0, num_workers:int=2,
+                    world_size:int=1, dist_url:str='env://'):
     """
-    Run DETR training (https://github.com/facebookresearch/detr/blob/main/main.py)
+    Run DETR object detection training (https://github.com/facebookresearch/detr/blob/main/main.py)
 
     Parameters
     ----------
     coco_path : str
         Path to the Dataset that is used for the training
-    frozen_weights: str
-        Path to the pretrained model. If set, only the mask head will be trained. If None, all the layers will be trained
     device: {'cuda', 'cpu'}
         device to use for training / testing
     lr: float
@@ -44,9 +41,6 @@ def train(coco_path: str, frozen_weights: str, device:Literal['cuda', 'cpu'],
         Learning rate drop
     clip_max_norm: float
         Gradient clipping max norm
-    
-    frozen_weights: str
-        Adopting mix precision training
     
     backbone: str
         Name of the convolutional backbone to use
@@ -69,9 +63,6 @@ def train(coco_path: str, frozen_weights: str, device:Literal['cuda', 'cpu'],
         Number of attention heads inside the transformer's attentions
     num_queries: int
         Number of query slots
-    
-    masks: bool
-        Train segmentation head if the flag is provided
     
     aux_loss: bool
         Enables auxiliary decoding losses (loss at each layer)
@@ -120,7 +111,7 @@ def train(coco_path: str, frozen_weights: str, device:Literal['cuda', 'cpu'],
     # Load DETR package
     from main import main
     # Create arguments instance
-    args = Namespace(coco_path=coco_path, frozen_weights=frozen_weights, device=device,
+    args = Namespace(coco_path=coco_path, frozen_weights=None, device=device,
                      lr=lr, lr_backbone=lr_backbone, batch_size=batch_size,
                      weight_decay=weight_decay, epochs=epochs, lr_drop=lr_drop,
                      clip_max_norm=clip_max_norm,
@@ -128,10 +119,10 @@ def train(coco_path: str, frozen_weights: str, device:Literal['cuda', 'cpu'],
                      enc_layers=enc_layers, dec_layers=dec_layers, dim_feedforward=dim_feedforward,
                      hidden_dim=hidden_dim, dropout=dropout, nheads=nheads,
                      num_queries=num_queries, pre_norm=False,
-                     masks=masks,
+                     masks=False,
                      aux_loss=aux_loss,
                      set_cost_class=set_cost_class, set_cost_bbox=set_cost_bbox, set_cost_giou=set_cost_giou,
-                     mask_loss_coef=mask_loss_coef, dice_loss_coef=dice_loss_coef, bbox_loss_coef=bbox_loss_coef,
+                     mask_loss_coef=1.0, dice_loss_coef=1.0, bbox_loss_coef=bbox_loss_coef,
                      giou_loss_coef=giou_loss_coef, eos_coef=eos_coef,
                      dataset_file=dataset_file, coco_panoptic_path=coco_panoptic_path, remove_difficult=remove_difficult,
                      output_dir=output_dir, seed=seed, resume=resume,

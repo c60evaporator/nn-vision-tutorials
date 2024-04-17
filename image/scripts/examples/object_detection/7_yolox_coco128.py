@@ -138,7 +138,7 @@ model_trained.to(device)
 model_trained.eval()
 model_trained.head.training=False
 model_trained.training=False
-# Load the weights from training
+# Load the weights from the training result
 best_weights = torch.load(f'{PARAMS_SAVE_ROOT}/yolox/{model_weight_name}')
 # best_weights = torch.load(f'/scripts/examples/pretrained_weights/yolox_s.pth')
 model_trained.load_state_dict(best_weights['model'])

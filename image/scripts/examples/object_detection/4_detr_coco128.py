@@ -95,15 +95,15 @@ val_reverse_transform = transforms.Compose([
 ###### 4. Training ######
 # Import DETR package
 sys.path.append(DETR_ROOT)
-from torch_extend.detection.detr_utils import train
+from torch_extend.detection.detr_utils import train_detection
 # Train by the function
 start = time.time()  # For elapsed time
 result_dir = f'{RESULTS_SAVE_ROOT}/detr/{datetime.now().strftime("%Y%m%d%H%M%S")}_{DATASET_NAME}_{os.path.splitext(os.path.basename(PRETRAINED_WEIGHT))[0]}'
 os.makedirs(result_dir, exist_ok=True)
 train_data_path = f'{DATA_SAVE_ROOT}/{DATASET_NAME}'
-train(coco_path=train_data_path, frozen_weights=PRETRAINED_WEIGHT, device=device, 
-      batch_size=BATCH_SIZE, epochs=NUM_EPOCHS, num_workers=NUM_LOAD_WORKERS,
-      output_dir=result_dir)
+train_detection(coco_path=train_data_path, device=device, 
+                batch_size=BATCH_SIZE, epochs=NUM_EPOCHS, num_workers=NUM_LOAD_WORKERS,
+                output_dir=result_dir)
 print(f'Training complete, elapsed_time={time.time() - start}')
 # Save the weights
 os.makedirs(f'{PARAMS_SAVE_ROOT}/detr', exist_ok=True)
@@ -117,10 +117,16 @@ shutil.copy(f'{result_dir}/checkpoint.pth', f'{PARAMS_SAVE_ROOT}/detr/{model_wei
 
 ###### Inference in the first mini-batch ######
 # Load a model with the trained weight
-model = torch.hub.load("facebookresearch/detr", "detr_resnet50", pretrained=True)
+model = torch.hub.load("facebookresearch/detr", "detr_resnet50", pretrained=False)
 print(model)
 # Send the model to GPU
 model.to(device)
+# Turn off training mode so the model so it won't try to calculate loss
+model.eval()
+# Load the weights from the training result
+best_weight = torch.load(f'{PARAMS_SAVE_ROOT}/detr/{model_weight_name}')
+model.load_state_dict(best_weight['model'])
+
 # Load a minibatch data
 val_iter = iter(val_loader)
 imgs, targets = next(val_iter)  # Load the first batch
