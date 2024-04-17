@@ -149,7 +149,6 @@ show_predicted_detection_minibatch(imgs_display, predictions, targets_resize, id
 
 #%%
 ###### Calculate mAP ######
-from torch import no_grad
 targets_list = []
 predictions_list = []
 start = time.time()  # For elapsed time
@@ -157,7 +156,7 @@ for i, (imgs, targets) in enumerate(val_loader):
     imgs_transformed = [val_transform(img) for img in imgs]
     imgs_gpu = [img.to(device) for img in imgs_transformed]
     # Inference
-    with no_grad():  # Avoid memory overflow
+    with torch.no_grad():  # Avoid memory overflow
         if SAME_IMG_SIZE: # If the image sizes are the same, inference can be conducted with the batch data
             results = model(imgs_gpu)
             img_sizes = imgs_transformed.size()
@@ -169,8 +168,10 @@ for i, (imgs, targets) in enumerate(val_loader):
         results, img_sizes=img_sizes,
         same_img_size=SAME_IMG_SIZE, prob_threshold=PROB_THRESHOLD
     )
+    # Convert the Target bounding box positions in accordance with the resize
+    targets_resize = [resize_target(target, to_tensor(img), resized_img) for target, img, resized_img in zip(targets, imgs, imgs_transformed)]
     # Store the result
-    targets_list.extend(targets)
+    targets_list.extend(targets_resize)
     predictions_list.extend(predictions)
     if i%100 == 0:  # Show progress every 100 images
         print(f'Prediction for mAP: {i}/{len(val_loader)} batches, elapsed_time: {time.time() - start}')
