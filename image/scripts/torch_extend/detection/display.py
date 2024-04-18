@@ -48,7 +48,6 @@ def show_bounding_boxes(image, boxes, labels=None, idx_to_class=None,
     if idx_to_class is not None:
         labels = [idx_to_class[int(label.item())] for label in labels]
     # Show All bounding boxes
-    print(boxes)
     image_with_boxes = draw_bounding_boxes(image, boxes, labels=labels, colors=colors,
                                            fill=fill, width=width,
                                            font=font, font_size=font_size)
@@ -90,10 +89,6 @@ def show_pred_true_boxes(image,
         If None, the confidence scores are not displayed and conf_threshold is not applied. 
     conf_threshold : float
         A threshold of the confidence score for selecting predicted bounding boxes shown.
-        
-        If True, predicted bounding boxes whose confidence score is higher than the conf_threshold are displayed.
-
-        If False, all predicted bounding boxes are displayed.
     score_decimal : str
         A decimal for the displayed confidence scores.
     calc_iou : True
@@ -171,15 +166,25 @@ def show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class,
     imgs : List[torch.Tensor (C x H x W)]
         List of the images which are standardized to [0, 1]
     
-    predictions : Dict[str, Any] (TorchVision Format)
-        List of the prediction result (including 'boxes', 'labels', and 'scores')
+    predictions : Dict[str, Any] (TorchVision detection prediction format)
+        List of the prediction result. The format should be as follows.
+
+        [{'boxes': Tensor([[xmin1, ymin1, xmax1, ymax1],..]), 'labels': Tensor([labelindex1,..]), 'scores': Tensor([confidence1,..])}]
     
-    targets : Dict[str, Any] (TorchVision Format)
-        List of the ground truths (including 'boxes', 'labels', and 'scores')
+    targets : Dict[str, Any] (TorchVision detection target format)
+        List of the ground truths. The format should be as follows.
+
+        [{'boxes': Tensor([[xmin1, ymin1, xmax1, ymax1],..]), 'labels': Tensor([labelindex1,..])}]
     
     idx_to_class : Dict[int, str]
         A dict for converting class IDs to class names.
         If None, class ID is used for the plot
+
+    max_displayed_images : int
+        number of maximum displayed images. This is in case of big batch size.
+
+    conf_threshold : float
+        A threshold of the confidence score for selecting predicted bounding boxes shown.
     """
     for i, (img, prediction, target) in enumerate(zip(imgs, predictions, targets)):
         img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]

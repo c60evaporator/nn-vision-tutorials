@@ -1,5 +1,7 @@
+from typing import List
 import torch
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import seaborn as sns
 import numpy as np
 from PIL import Image
@@ -24,13 +26,17 @@ def _create_segmentation_palette():
     palette = [list(int(ip[i:i+2],16) for i in (1, 3, 5)) for ip in palette]  # Convert hex to RGB
     return palette
 
-def _array1d_to_pil_image(array: torch.Tensor, palette=None, bg_idx=None, border_idx=None):
+def _array1d_to_pil_image(array: torch.Tensor, palette: List[List[int]], bg_idx=None, border_idx=None):
     """
     Convert 1D class image to colored PIL image
+
+    Parameters
+    ----------
+    array : torch.Tensor (x, y)
+        Input image whose value indicate the class label
+    palette : List ([[R1, G1, B1], [R2, G2, B2],..])
+        Color palette for specifying the classes
     """
-    # Auto palette generation
-    if palette is None:
-        palette = _create_segmentation_palette()
     # Replace the background
     if bg_idx is not None:
         palette[bg_idx] = [255, 255, 255]
@@ -44,10 +50,12 @@ def _array1d_to_pil_image(array: torch.Tensor, palette=None, bg_idx=None, border
     pil_out.putpalette(np.array(palette, dtype=np.uint8))
     return pil_out
 
-def show_segmentations(image, target, 
-                       alpha=0.5, palette=None,
-                       bg_idx=0, border_idx=None,
-                       ax=None):
+def show_segmentation(image, target, 
+                      alpha=0.5, palette=None,
+                      bg_idx=0, border_idx=None,
+                      add_legend=True, idx_to_class=None,
+                      plot_raw_image=True,
+                      ax=None):
     """
     Show the image with the segmentation.
 
@@ -63,21 +71,156 @@ def show_segmentations(image, target,
         Color palette for specifying the classes
     bg_idx : int
         Index of the background class
+    border_idx : int
+        Index of the border class
+    add_legend : bool
+        If True, the legend of the class labels is added
+    idx_to_class : Dict[int, str]
+        A dict for converting class IDs to class names.
+        Only available if `add_legend` is true
+        If None, class ID is used for the plot
+    plot_raw_image : bool
+        If True, the raw image is plotted as the background
     ax : matplotlib Axes
         Axes object to draw the plot onto, otherwise uses the current Axes.
     """
+    # Auto palette generation
+    if palette is None:
+        palette = _create_segmentation_palette()
     # If ax is None, use matplotlib.pyplot.gca()
     if ax is None:
         ax=plt.gca()
-    # Display Image
-    ax.imshow(image.permute(1, 2, 0))
+    # Display the raw image
+    if plot_raw_image:
+        ax.imshow(image.permute(1, 2, 0))
     # Display Segmentations
     segmentation_img = _array1d_to_pil_image(target, palette, bg_idx, border_idx)
     ax.imshow(segmentation_img, alpha=alpha)
-    
-    # Add Ledgends
-    
+    # Add legend
+    if add_legend:
+        labels_unique = torch.unique(target).cpu().detach().numpy()
+        # Convert class IDs to class names
+        if idx_to_class is None:
+            idx_to_class_bd = {idx: str(idx) for idx in range(np.max(labels_unique))}
+        else:
+            idx_to_class_bd = {k: v for k, v in idx_to_class.items()}
+        # Add the border label to idx_to_class
+        if border_idx is not None:
+            idx_to_class_bd[border_idx] = 'border'
+        # Add legend
+        handles = [mpatches.Patch(facecolor=(palette[label][0]/255,
+                                         palette[label][1]/255,
+                                         palette[label][2]/255), 
+                              label=idx_to_class_bd[label])
+               for label in labels_unique]
+        ax.legend(handles=handles)
 
-    #image_with_boxes = image_with_boxes.permute(1, 2, 0)  # Change axis order from (ch, x, y) to (x, y, ch)
+def show_segmentations(image, target, 
+                       idx_to_class=None,
+                       alpha=0.5, palette=None,
+                       bg_idx=0, border_idx=None,
+                       plot_raw_image=True):
+    """
+    Show the image with the segmentation, legend, and the row image.
 
-# TODO: 横にraw画像表示させる関数作る
+    Parameters
+    ----------
+    image : torch.Tensor (ch, x, y)
+        Input image with 256 color indices
+    target : torch.Tensor (x, y)
+        Target segmentation class with Torchvision segmentation format 
+    alpha : float
+        Transparency of the segmentation 
+    palette : List ([[R1, G1, B1], [R2, G2, B2],..])
+        Color palette for specifying the classes
+    bg_idx : int
+        Index of the background class
+    border_idx : int
+        Index of the border class
+    plot_raw_image : bool
+        If True, the raw image is plotted as the background
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    
+    # Auto palette generation
+    if palette is None:
+        palette = _create_segmentation_palette()
+    # Plot the segmentation image
+    show_segmentation(image, target, alpha, palette, bg_idx, border_idx, 
+                      add_legend=True, idx_to_class=idx_to_class,
+                      plot_raw_image=plot_raw_image, ax=axes[0])
+    axes[0].set_title('True segmentation')
+    # Plot the row image
+    axes[1].imshow(image.permute(1, 2, 0))
+    axes[1].set_title('Raw image')
+    plt.show()
+
+def show_predicted_segmentation_minibatch(imgs, predictions, targets, idx_to_class,
+                                          alpha=0.5, palette=None,
+                                          bg_idx=0, border_idx=None,
+                                          plot_raw_image=True,
+                                          max_displayed_images=None):
+    """
+    Show predicted minibatch images with predicted and true segmentation.
+
+    Parameters
+    ----------
+    imgs : torch.Tensor (image_idx x C x H x W)
+        Images which are standardized to [0, 1]
+    
+    predictions : Dict[str, Tensor(image_idx x H x W)] (TorchVision segmentation prediction format)
+        List of the prediction result. The format should be as follows. 'out' indicates the probability of each classes and 'aux' is not useful (https://pytorch.org/hub/pytorch_vision_deeplabv3_resnet101/)
+
+        {'out': Tensor(image_idx x class x H x W), 'aux': Tensor(image_idx x class x H x W)}
+    
+    targets : torch.Tensor (image_idx x H x W) (TorchVision segmentation target format)
+        Ground truths which indicates the label index of each pixel
+    
+    idx_to_class : Dict[int, str]
+        A dict for converting class IDs to class names.
+        If None, class ID is used for the plot
+
+    alpha : float
+        Transparency of the segmentation 
+
+    palette : List ([[R1, G1, B1], [R2, G2, B2],..])
+        Color palette for specifying the classes
+
+    bg_idx : int
+        Index of the background class
+    
+    border_idx : int
+        Index of the border class
+
+    plot_raw_image : bool
+        If True, the raw image is plotted as the background
+
+    max_displayed_images : int
+        number of maximum displayed images. This is in case of big batch size.
+    """
+    # Auto palette generation
+    if palette is None:
+        palette = _create_segmentation_palette()
+    # Image loop
+    for i, (img, prediction, target) in enumerate(zip(imgs, predictions['out'], targets)):
+        img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]
+        predicted_labels = prediction.argmax(0).cpu().detach()
+        print(f'idx={i}')
+        # Create a camvas
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        # Plot the true segmentation
+        show_segmentation(img, target, alpha, palette, bg_idx, border_idx, 
+                          add_legend=True, idx_to_class=idx_to_class, 
+                          plot_raw_image=plot_raw_image, ax=axes[0])
+        axes[0].set_title('True segmentation')
+        # Plot the row image
+        axes[1].imshow(img.permute(1, 2, 0))
+        axes[1].set_title('Raw image')
+        # Plot the predicted segmentation
+        show_segmentation(img, predicted_labels, alpha, palette, bg_idx, border_idx, 
+                          add_legend=True, idx_to_class=idx_to_class, 
+                          plot_raw_image=plot_raw_image, ax=axes[2])
+        axes[2].set_title('Predicted segmentation')
+        plt.show()
+        if max_displayed_images is not None and i >= max_displayed_images - 1:
+            break

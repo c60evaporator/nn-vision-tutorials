@@ -54,6 +54,8 @@ def target_transform_to_torchvision(target, in_format, class_to_idx=None):
 
     {'boxes': Tensor([[xmin1, ymin1, xmax1, ymax1],..]), 'labels': Tensor([labelindex1, labelindex2,..])}
 
+    This function is only compatible with torchvision.datasets.VOCDetection and torchvision.datasets.COCODetection dataset class.
+
     Parameters
     ----------
     target : {dict, list}

@@ -12,8 +12,7 @@ import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from torch_extend.segmentation.display import show_segmentations
-from torch_extend.segmentation.segmentation_utils import target_transform_to_torchvision
+from torch_extend.segmentation.display import show_segmentations, show_predicted_segmentation_minibatch
 
 SEED = 42
 BATCH_SIZE = 8  # Batch size
@@ -61,7 +60,7 @@ torch.manual_seed(SEED)
 ###### 1. Create dataset & Preprocessing ######
 # Define preprocessing for image (https://poutyne.org/examples/semantic_segmentation.html)
 transform = transforms.Compose([
-    transforms.Resize((224, 224)),  # Resize an image to fit the short side to 800px
+    transforms.Resize((224, 224)),  # Resize the image to 224px x 224px
     transforms.ToTensor(),  # Convert from range [0, 255] to a torch.FloatTensor in the range [0.0, 1.0]
     transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)  # Normalization (mean and std of the imagenet dataset for normalizing)
 ])
@@ -70,7 +69,7 @@ def replace_tensor_value_(tensor, a, border_class):
     tensor[tensor == a] = border_class
     return tensor
 target_transform = transforms.Compose([
-    transforms.Resize((224, 224), interpolation=InterpolationMode.NEAREST),  # Resize an image to 224px x 224px
+    transforms.Resize((224, 224), interpolation=InterpolationMode.NEAREST),  # Resize the image to 224px x 224px
     transforms.PILToTensor(),  # Convert from PIL Image to a torch.FloatTensor in the range [0.0, 1.0]
     transforms.Lambda(lambda x: replace_tensor_value_(x.squeeze(0).long(), 255, len(CLASS_TO_IDX)))  # Replace the border to the border class ID
 ])
@@ -95,13 +94,17 @@ imgs, targets = next(display_iter)
 for i, (img, target) in enumerate(zip(imgs, targets)):
     img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]
     #labels = [idx_to_class[label.item()] for label in labels]  # Change labels from index to str
-    show_segmentations(img, target, border_idx=len(CLASS_TO_IDX))
-    plt.show()
+    show_segmentations(img, target, idx_to_class, bg_idx=0, border_idx=len(CLASS_TO_IDX))
 # Load validation dataset
 val_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
                               image_set='val', download=True,
                               transform = transform, target_transform=target_transform)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS)
+# Reverse transform for showing the image
+val_reverse_transform = transforms.Compose([
+    transforms.Normalize(mean=[-mean/std for mean, std in zip(IMAGENET_MEAN, IMAGENET_STD)],
+                         std=[1/std for std in IMAGENET_STD])
+])
 
 ###### 2. Define Model ######
 # Load a pretrained network (https://www.kaggle.com/code/dasmehdixtr/load-finetune-pretrained-model-in-pytorch)
@@ -136,7 +139,7 @@ def criterion(inputs, target):
 optimizer = optim.Adam(params, lr=0.0005)  # Optimizer (Adam). Only parameters in the final layer are set.
 
 ###### 4. Training ######
-# https://github.com/pytorch/vision/blob/main/references/detection/engine.py
+# https://github.com/pytorch/vision/tree/main/references/segmentation
 model.train()  # Set the training mode
 losses = []  # Array for string loss (criterion)
 val_losses = []  # Array for validation loss
@@ -193,9 +196,25 @@ plt.show()
 params = model.state_dict()
 if not os.path.exists(PARAMS_SAVE_ROOT):
     os.makedirs(PARAMS_SAVE_ROOT)
-torch.save(params, f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn_fine.prm')
+torch.save(params, f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn.prm')
+
+
+# %%
+###### Inference in the first mini-batch ######
 # Reload parameters
-#params_load = torch.load(f'{PARAMS_SAVE_ROOT}/pascalvoc_retinanet_fine.prm')
-#model.load_state_dict(params)
+params_load = torch.load(f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn.prm')
+model.load_state_dict(params_load)
+# Inference
+val_iter = iter(val_loader)
+imgs, targets = next(val_iter)
+imgs_gpu = imgs.to(device)
+model.eval()  # Set the evaluation mode
+predictions = model(imgs_gpu)
+# Reverse normalization for getting the raw image
+imgs_display = [val_reverse_transform(img) for img in imgs]
+# Show the image
+show_predicted_segmentation_minibatch(imgs_display, predictions, targets, idx_to_class, 
+                                      bg_idx=0, border_idx=len(CLASS_TO_IDX), plot_raw_image=True,
+                                      max_displayed_images=NUM_DISPLAYED_IMAGES)
 
 # %%
