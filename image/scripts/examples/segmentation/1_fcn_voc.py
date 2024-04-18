@@ -116,7 +116,7 @@ val_reverse_transform = transforms.Compose([
 ###### 2. Define Model ######
 # Load a pretrained network (https://www.kaggle.com/code/dasmehdixtr/load-finetune-pretrained-model-in-pytorch)
 weights = models.segmentation.FCN_ResNet50_Weights.DEFAULT
-model = models.segmentation.fcn_resnet50(weights=weights)
+model = models.segmentation.fcn_resnet50(weights=weights, num_classes=len(CLASS_TO_IDX))
 # Freeze pretrained parameters
 if FREEZE_PRETRAINED:
     for param in model.parameters():
