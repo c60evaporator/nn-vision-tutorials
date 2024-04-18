@@ -129,7 +129,7 @@ for epoch in range(NUM_EPOCHS):
     # Mini-batch loop
     for i, (imgs, targets) in enumerate(train_loader):
         # Send images and labels to GPU
-        imgs = list(img.to(device) for img in imgs)
+        imgs = [img.to(device) for img in imgs]
         targets = [{k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in t.items()}
                    for t in targets]
         # Update parameters
@@ -154,7 +154,7 @@ for epoch in range(NUM_EPOCHS):
                        for t in val_targets]
         val_loss_dict = model(val_imgs, val_targets)  # Forward (Prediction)
         val_loss = criterion(val_loss_dict)  # Calculate criterion
-        val_running_loss += val_loss.item()   # Update running loss
+        val_running_loss += val_loss.item()  # Update running loss
         if i%100 == 0:  # Show progress every 100 times
             print(f'val minibatch index: {i}/{len(val_loader)}, elapsed_time: {time.time() - start}')
     val_running_loss /= len(val_loader)

@@ -126,7 +126,7 @@ for epoch in range(NUM_EPOCHS):
     for i, (imgs, targets) in enumerate(train_loader):
         # Send images and labels to GPU
         # https://github.com/pytorch/vision/blob/main/references/detection/engine.py
-        imgs = list(img.to(device) for img in imgs)
+        imgs = [img.to(device) for img in imgs]
         targets = [{k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in t.items()}
                    for t in targets]
         # Update parameters

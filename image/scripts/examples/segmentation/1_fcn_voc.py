@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms, models
+from torchvision.models.segmentation._utils import _SimpleSegmentationModel
 from torchvision.datasets import VOCSegmentation
 from torchvision.transforms.functional import InterpolationMode
 import matplotlib.pyplot as plt
@@ -145,6 +146,29 @@ def criterion(inputs, target):
 optimizer = optim.Adam(params, lr=0.0005)  # Optimizer (Adam). Only parameters in the final layer are set.
 
 ###### 4. Training ######
+def train_batch(imgs: torch.Tensor, targets: torch.Tensor,
+                model: _SimpleSegmentationModel, optimizer: torch.optim.Optimizer, criterion):
+    """Train one batch"""
+    # Send images and labels to GPU
+    imgs = imgs.to(device)
+    targets = targets.to(device)
+    # Update parameters
+    optimizer.zero_grad()  # Initialize gradient
+    output = model(imgs)  # Forward (Prediction)
+    loss = criterion(output, targets)  # Calculate criterion
+    loss.backward()  # Backpropagation (Calculate gradient)
+    optimizer.step()  # Update parameters (Based on optimizer algorithm)
+    return loss
+
+def validate_batch(val_imgs: torch.Tensor, val_targets: torch.Tensor,
+                   model: _SimpleSegmentationModel, criterion):
+    """Validate one batch"""
+    val_imgs = val_imgs.to(device)
+    val_targets = val_targets.to(device)
+    val_output = model(val_imgs)  # Forward (Prediction)
+    val_loss = criterion(val_output, val_targets)  # Calculate criterion
+    return val_loss
+
 # https://github.com/pytorch/vision/tree/main/references/segmentation
 model.train()  # Set the training mode
 losses = []  # Array for string loss (criterion)
@@ -157,17 +181,14 @@ for epoch in range(NUM_EPOCHS):
     running_acc = 0.0  # Initialize running accuracy
     # Mini-batch loop
     for i, (imgs, targets) in enumerate(train_loader):
-        # Send images and labels to GPU ()
-        imgs = imgs.to(device)
-        targets = targets.to(device)
-        # Update parameters
-        optimizer.zero_grad()  # Initialize gradient
-        output = model(imgs)  # Forward (Prediction)
-        loss = criterion(output, targets)  # Calculate criterion
-        loss.backward()  # Backpropagation (Calculate gradient)
-        optimizer.step()  # Update parameters (Based on optimizer algorithm)
-        # Store running losses
-        running_loss += loss.item()  # Update running loss
+        # Training
+        if SAME_IMG_SIZE:
+            loss = train_batch(imgs, targets, model, optimizer, criterion)
+            running_loss += loss.item()  # Update running loss
+        else:  # Separate the batch into each sample if the image sizes are different
+            for img, target in zip(imgs, targets):
+                loss = train_batch(img.unsqueeze(0), target.unsqueeze(0), model, optimizer, criterion)
+                running_loss += loss.item() / len(imgs)  # Update running loss
         if i%100 == 0:  # Show progress every 100 times
             print(f'minibatch index: {i}/{len(train_loader)}, elapsed_time: {time.time() - start}')
     # Calculate average of running losses and accs
@@ -177,11 +198,13 @@ for epoch in range(NUM_EPOCHS):
     # Calculate validation metrics
     val_running_loss = 0.0  # Initialize validation running loss
     for i, (val_imgs, val_targets) in enumerate(val_loader):
-        val_imgs = val_imgs.to(device)
-        val_targets = val_targets.to(device)
-        val_output = model(val_imgs)  # Forward (Prediction)
-        val_loss = criterion(val_output, val_targets)  # Calculate criterion
-        val_running_loss += val_loss.item()   # Update running loss
+        if SAME_IMG_SIZE:
+            val_loss = validate_batch(val_imgs, val_targets, model, criterion)
+            val_running_loss += val_loss.item()  # Update running loss
+        else:  # Separate the batch into each sample if the image sizes are different            
+            for val_img, val_target in zip(val_imgs, val_targets):
+                val_loss = validate_batch(val_img.unsqueeze(0), val_target.unsqueeze(0), model, criterion)
+                val_running_loss += val_loss.item() / len(imgs)  # Update running loss
         if i%100 == 0:  # Show progress every 100 times
             print(f'val minibatch index: {i}/{len(val_loader)}, elapsed_time: {time.time() - start}')
     val_running_loss /= len(val_loader)
@@ -207,19 +230,25 @@ torch.save(params, f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn.prm')
 
 # %%
 ###### Inference in the first mini-batch ######
+from collections import OrderedDict
 # Reload parameters
 params_load = torch.load(f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn.prm')
 model.load_state_dict(params_load)
 # Inference
 val_iter = iter(val_loader)
 imgs, targets = next(val_iter)
-imgs_gpu = imgs.to(device)
 model.eval()  # Set the evaluation mode
-predictions = model(imgs_gpu)
+if SAME_IMG_SIZE: # If the image sizes are the same, inference can be conducted with the batch data
+    imgs_gpu = imgs.to(device)
+    predictions = model(imgs_gpu)
+else: # if the image sizes are different, inference should be conducted with one sample
+    imgs_gpu = [img.to(device) for img in imgs]
+    predictions = [model(img.unsqueeze(0)) for img in imgs_gpu]
+    predictions = {'out': [pred['out'][0] for pred in predictions]}
 # Reverse normalization for getting the raw image
 imgs_display = [val_reverse_transform(img) for img in imgs]
 # Show the image
-show_predicted_segmentation_minibatch(imgs_display, predictions, targets, idx_to_class, 
+show_predicted_segmentation_minibatch(imgs_display, predictions, targets, idx_to_class,
                                       bg_idx=0, border_idx=len(CLASS_TO_IDX), plot_raw_image=True,
                                       max_displayed_images=NUM_DISPLAYED_IMAGES)
 
