@@ -58,13 +58,13 @@ if DEVICE == 'cpu':
 torch.manual_seed(SEED)
 
 ###### 1. Create dataset & Preprocessing ######
-# Define preprocessing for image (https://poutyne.org/examples/semantic_segmentation.html)
+# Define preprocessing of the image (https://poutyne.org/examples/semantic_segmentation.html)
 transform = transforms.Compose([
     transforms.Resize((224, 224)),  # Resize the image to 224px x 224px
     transforms.ToTensor(),  # Convert from range [0, 255] to a torch.FloatTensor in the range [0.0, 1.0]
     transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)  # Normalization (mean and std of the imagenet dataset for normalizing)
 ])
-# Define preprocessing for target
+# Define preprocessing of the target for VOCSegmentation dataset
 def replace_tensor_value_(tensor, a, border_class):
     tensor[tensor == a] = border_class
     return tensor
