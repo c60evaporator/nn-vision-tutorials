@@ -29,7 +29,7 @@ RESULTS_SAVE_ROOT = '/scripts/examples/object_detection/results'
 PARAMS_SAVE_ROOT = '/scripts/examples/object_detection/params'  # Directory for Saved parameters
 DETR_ROOT = '/repos/DETR/detr'  # YOLOX (Clone from https://github.com/Megvii-BaseDetection/YOLOX)
 PRETRAINED_WEIGHT = '/scripts/examples/object_detection/pretrained_weights/detr-r50-e632da11.pth'  # Pretrained weight for DETR (Download from https://github.com/facebookresearch/detr/tree/main?tab=readme-ov-file#model-zoo)
-SAME_IMG_SIZE = False  # Whether the image sizes are the same or not
+SAME_IMG_SIZE = False  # Whether the resized image sizes are the same or not
 PROB_THRESHOLD = 0.8  # Threshold for the class probability
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]

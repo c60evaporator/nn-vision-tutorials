@@ -23,6 +23,7 @@ DEVICE = 'cuda'  # 'cpu' or 'cuda'
 DATA_SAVE_ROOT = '/scripts/examples/segmentation/datasets'  # Directory for Saved dataset
 PARAMS_SAVE_ROOT = '/scripts/examples/segmentation/params'  # Directory for Saved parameters
 FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
+SAME_IMG_SIZE = False  # Whether the resized image sizes are the same or not
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
@@ -85,13 +86,15 @@ train_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
 idx_to_class = {v: k for k, v in CLASS_TO_IDX.items()}
 num_classes = len(idx_to_class) + 1  # Classification classes + 1 (border)
 # Define mini-batch DataLoader
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS)
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
+                          collate_fn=None if SAME_IMG_SIZE else collate_fn)
 # Display images in the first mini-batch
 display_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
                                   image_set='train', download=True,
                                   transform = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()]),
                                   target_transform=target_transform)
-display_loader = DataLoader(display_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS)
+display_loader = DataLoader(display_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
+                            collate_fn=None if SAME_IMG_SIZE else collate_fn)
 display_iter = iter(display_loader)
 imgs, targets = next(display_iter)
 for i, (img, target) in enumerate(zip(imgs, targets)):
@@ -102,7 +105,8 @@ for i, (img, target) in enumerate(zip(imgs, targets)):
 val_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
                               image_set='val', download=True,
                               transform = transform, target_transform=target_transform)
-val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS)
+val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
+                        collate_fn=None if SAME_IMG_SIZE else collate_fn)
 # Reverse transform for showing the image
 val_reverse_transform = transforms.Compose([
     transforms.Normalize(mean=[-mean/std for mean, std in zip(IMAGENET_MEAN, IMAGENET_STD)],
@@ -111,9 +115,8 @@ val_reverse_transform = transforms.Compose([
 
 ###### 2. Define Model ######
 # Load a pretrained network (https://www.kaggle.com/code/dasmehdixtr/load-finetune-pretrained-model-in-pytorch)
-#weights = models.segmentation.FCN_ResNet50_Weights.DEFAULT
-#model = models.segmentation.fcn_resnet50(weights=weights)
-model = models.segmentation.fcn_resnet50(pretrained=True)
+weights = models.segmentation.FCN_ResNet50_Weights.DEFAULT
+model = models.segmentation.fcn_resnet50(weights=weights)
 # Freeze pretrained parameters
 if FREEZE_PRETRAINED:
     for param in model.parameters():
