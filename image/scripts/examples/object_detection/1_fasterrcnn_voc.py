@@ -113,13 +113,13 @@ def criterion(loss_dict):  # Criterion (Sum of all the losses)
 optimizer = optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)  # Optimizer (Adam). Only parameters in the final layer are set.
 
 ###### 4. Training ######
-model.train()  # Set the training mode
 losses = []  # Array for storing loss (criterion)
 val_losses = []  # Array for validation loss
 start = time.time()  # For elapsed time
 # Epoch loop
 for epoch in range(NUM_EPOCHS):
     # Initialize training metrics
+    model.train()  # Set the training mode
     running_loss = 0.0  # Initialize running loss
     running_acc = 0.0  # Initialize running accuracy
     # Mini-batch loop
@@ -143,17 +143,19 @@ for epoch in range(NUM_EPOCHS):
     running_loss /= len(train_loader)
     losses.append(running_loss)
 
-    # Calculate validation metrics
+    # Calculate validation metrics (https://pytorch.org/tutorials/beginner/introyt/trainingyt.html#per-epoch-activity)
+    model.eval()  # Set the evaluation mode
     val_running_loss = 0.0  # Initialize validation running loss
-    for i, (val_imgs, val_targets) in enumerate(val_loader):
-        val_imgs = [img.to(device) for img in val_imgs]
-        val_targets = [{k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in t.items()}
-                       for t in val_targets]
-        val_loss_dict = model(val_imgs, val_targets)  # Forward (Prediction)
-        val_loss = criterion(val_loss_dict)  # Calculate criterion
-        val_running_loss += val_loss.item()   # Update running loss
-        if i%100 == 0:  # Show progress every 100 times
-            print(f'val minibatch index: {i}/{len(val_loader)}, elapsed_time: {time.time() - start}')
+    with torch.no_grad():
+        for i, (val_imgs, val_targets) in enumerate(val_loader):
+            val_imgs = [img.to(device) for img in val_imgs]
+            val_targets = [{k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in t.items()}
+                        for t in val_targets]
+            val_loss_dict = model(val_imgs, val_targets)  # Forward (Prediction)
+            val_loss = criterion(val_loss_dict)  # Calculate criterion
+            val_running_loss += val_loss.item()   # Update running loss
+            if i%100 == 0:  # Show progress every 100 times
+                print(f'val minibatch index: {i}/{len(val_loader)}, elapsed_time: {time.time() - start}')
     val_running_loss /= len(val_loader)
     val_losses.append(val_running_loss)
 
