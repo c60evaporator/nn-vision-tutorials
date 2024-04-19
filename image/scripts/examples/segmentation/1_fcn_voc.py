@@ -24,7 +24,7 @@ DEVICE = 'cuda'  # 'cpu' or 'cuda'
 DATA_SAVE_ROOT = '/scripts/examples/segmentation/datasets'  # Directory for Saved dataset
 PARAMS_SAVE_ROOT = '/scripts/examples/segmentation/params'  # Directory for Saved parameters
 FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
-SAME_IMG_SIZE = False  # Whether the resized image sizes are the same or not
+SAME_IMG_SIZE = True  # Whether the resized image sizes are the same or not
 SKIP_SINGLE_BATCH = False  # Should be set to True if 1D BatchNormalization layer is included in the model (e.g. DeepLabV3). If True, a batch with single sample is ignored
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
