@@ -24,7 +24,7 @@ DEVICE = 'cuda'  # 'cpu' or 'cuda'
 DATA_SAVE_ROOT = '/scripts/examples/segmentation/datasets'  # Directory for Saved dataset
 PARAMS_SAVE_ROOT = '/scripts/examples/segmentation/params'  # Directory for Saved parameters
 FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
-SAME_IMG_SIZE = False  # Whether the resized image sizes are the same or not
+SAME_IMG_SIZE = True  # Whether the resized image sizes are the same or not
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
@@ -63,7 +63,7 @@ torch.manual_seed(SEED)
 # Define preprocessing of the image
 def collate_fn(batch):  # collate_fn is needed if the sizes of resized images are different
     return tuple(zip(*batch))
-# Reference resize_size=520 (https://pytorch.org/vision/main/models/generated/torchvision.models.segmentation.fcn_resnet50.html)
+# Recommended resize_size=520 but other size is available (https://pytorch.org/vision/main/models/generated/torchvision.models.segmentation.fcn_resnet50.html)
 transform = transforms.Compose([
     transforms.Resize((224, 224)),  # Resize the image to 224px x 224px
     transforms.ToTensor(),  # Convert from range [0, 255] to a torch.FloatTensor in the range [0.0, 1.0]
@@ -170,13 +170,13 @@ def validate_batch(val_imgs: torch.Tensor, val_targets: torch.Tensor,
     return val_loss
 
 # https://github.com/pytorch/vision/tree/main/references/segmentation
-model.train()  # Set the training mode
 losses = []  # Array for string loss (criterion)
 val_losses = []  # Array for validation loss
 start = time.time()  # For elapsed time
 # Epoch loop
 for epoch in range(NUM_EPOCHS):
     # Initialize training metrics
+    model.train()  # Set the training mode
     running_loss = 0.0  # Initialize running loss
     running_acc = 0.0  # Initialize running accuracy
     # Mini-batch loop
@@ -195,18 +195,20 @@ for epoch in range(NUM_EPOCHS):
     running_loss /= len(train_loader)
     losses.append(running_loss)
 
-    # Calculate validation metrics
+    # Calculate validation metrics (https://pytorch.org/tutorials/beginner/introyt/trainingyt.html#per-epoch-activity)
+    model.eval()  # Set the evaluation mode
     val_running_loss = 0.0  # Initialize validation running loss
-    for i, (val_imgs, val_targets) in enumerate(val_loader):
-        if SAME_IMG_SIZE:
-            val_loss = validate_batch(val_imgs, val_targets, model, criterion)
-            val_running_loss += val_loss.item()  # Update running loss
-        else:  # Separate the batch into each sample if the image sizes are different            
-            for val_img, val_target in zip(val_imgs, val_targets):
-                val_loss = validate_batch(val_img.unsqueeze(0), val_target.unsqueeze(0), model, criterion)
-                val_running_loss += val_loss.item() / len(imgs)  # Update running loss
-        if i%100 == 0:  # Show progress every 100 times
-            print(f'val minibatch index: {i}/{len(val_loader)}, elapsed_time: {time.time() - start}')
+    with torch.no_grad():
+        for i, (val_imgs, val_targets) in enumerate(val_loader):
+            if SAME_IMG_SIZE:
+                val_loss = validate_batch(val_imgs, val_targets, model, criterion)
+                val_running_loss += val_loss.item()  # Update running loss
+            else:  # Separate the batch into each sample if the image sizes are different            
+                for val_img, val_target in zip(val_imgs, val_targets):
+                    val_loss = validate_batch(val_img.unsqueeze(0), val_target.unsqueeze(0), model, criterion)
+                    val_running_loss += val_loss.item() / len(imgs)  # Update running loss
+            if i%100 == 0:  # Show progress every 100 times
+                print(f'val minibatch index: {i}/{len(val_loader)}, elapsed_time: {time.time() - start}')
     val_running_loss /= len(val_loader)
     val_losses.append(val_running_loss)
 
@@ -230,7 +232,6 @@ torch.save(params, f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn.prm')
 
 # %%
 ###### Inference in the first mini-batch ######
-from collections import OrderedDict
 # Reload parameters
 params_load = torch.load(f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn.prm')
 model.load_state_dict(params_load)
