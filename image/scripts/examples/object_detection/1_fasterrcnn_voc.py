@@ -4,6 +4,7 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms, models
+from torchvision.models.detection.generalized_rcnn import GeneralizedRCNN
 from torchvision.datasets import VOCDetection
 import matplotlib.pyplot as plt
 import time
@@ -113,41 +114,58 @@ def criterion(loss_dict):  # Criterion (Sum of all the losses)
 optimizer = optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)  # Optimizer (Adam). Only parameters in the final layer are set.
 
 ###### 4. Training ######
-losses = []  # Array for storing loss (criterion)
-val_losses = []  # Array for validation loss
-start = time.time()  # For elapsed time
-# Epoch loop
-for epoch in range(NUM_EPOCHS):
+def train_one_epoch(model: GeneralizedRCNN, optimizer: torch.optim.Optimizer,
+                    data_loader: DataLoader, device: str, epoch: int):
+    """
+    Train the model in a epoch
+
+    https://github.com/pytorch/vision/blob/main/references/detection/engine.py
+    """
     # Initialize training metrics
     model.train()  # Set the training mode
     running_loss = 0.0  # Initialize running loss
-    running_acc = 0.0  # Initialize running accuracy
+    # Dynamic learning rate reducing (https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate)
+    lr_scheduler = None
+    if epoch == 0:
+        warmup_factor = 1.0 / 1000
+        warmup_iters = min(1000, len(data_loader) - 1)
+        lr_scheduler = torch.optim.lr_scheduler.LinearLR(
+            optimizer, start_factor=warmup_factor, total_iters=warmup_iters
+        )
     # Mini-batch loop
-    for i, (imgs, targets) in enumerate(train_loader):
+    for i, (imgs, targets) in enumerate(data_loader):
         # Send images and labels to GPU
-        # https://github.com/pytorch/vision/blob/main/references/detection/engine.py
         imgs = [img.to(device) for img in imgs]
         targets = [{k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in t.items()}
                    for t in targets]
-        # Update parameters
-        optimizer.zero_grad()  # Initialize gradient
+        # Calculate the loss
         loss_dict = model(imgs, targets)  # Forward (Prediction)
         loss = criterion(loss_dict)  # Calculate criterion
+        # Update parameters
+        optimizer.zero_grad()  # Initialize gradient
         loss.backward()  # Backpropagation (Calculate gradient)
         optimizer.step()  # Update parameters (Based on optimizer algorithm)
+        # Update learning rate
+        if lr_scheduler is not None:
+            lr_scheduler.step()
         # Store running losses
         running_loss += loss.item()  # Update running loss
         if i%100 == 0:  # Show progress every 100 times
-            print(f'minibatch index: {i}/{len(train_loader)}, elapsed_time: {time.time() - start}')
-    # Calculate average of running losses and accs
-    running_loss /= len(train_loader)
-    losses.append(running_loss)
+            print(f'minibatch index: {i}/{len(data_loader)}, elapsed_time: {time.time() - start}')
+    # Calculate average of running losses
+    running_loss /= len(data_loader)
+    return running_loss
 
-    # Calculate validation metrics (https://pytorch.org/tutorials/beginner/introyt/trainingyt.html#per-epoch-activity)
-    model.eval()  # Set the evaluation mode
+def evaluate(model: GeneralizedRCNN, data_loader: DataLoader, device: str):
+    """
+    Calculate validation metrics in a epoch
+
+    https://github.com/pytorch/vision/blob/main/references/detection/engine.py#L76
+    """
     val_running_loss = 0.0  # Initialize validation running loss
+    # Mini-batch loop
     with torch.no_grad():
-        for i, (val_imgs, val_targets) in enumerate(val_loader):
+        for i, (val_imgs, val_targets) in enumerate(data_loader):
             val_imgs = [img.to(device) for img in val_imgs]
             val_targets = [{k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in t.items()}
                         for t in val_targets]
@@ -155,10 +173,23 @@ for epoch in range(NUM_EPOCHS):
             val_loss = criterion(val_loss_dict)  # Calculate criterion
             val_running_loss += val_loss.item()   # Update running loss
             if i%100 == 0:  # Show progress every 100 times
-                print(f'val minibatch index: {i}/{len(val_loader)}, elapsed_time: {time.time() - start}')
-    val_running_loss /= len(val_loader)
-    val_losses.append(val_running_loss)
+                print(f'val minibatch index: {i}/{len(data_loader)}, elapsed_time: {time.time() - start}')
+    # Calculate average of running losses
+    val_running_loss /= len(data_loader)
+    return val_running_loss
 
+# Conduct training
+losses = []  # Array for storing loss (criterion)
+val_losses = []  # Array for validation loss
+start = time.time()  # For elapsed time
+# Epoch loop
+for epoch in range(NUM_EPOCHS):
+    # Train the model in a epoch
+    running_loss = train_one_epoch(model, optimizer, train_loader, device, epoch)
+    losses.append(running_loss)
+    # Calculate validation metrics (https://pytorch.org/tutorials/beginner/introyt/trainingyt.html#per-epoch-activity)
+    val_running_loss = evaluate(model, val_loader, device)
+    val_losses.append(val_running_loss)
     print(f'epoch: {epoch}, loss: {running_loss}, val_loss: {val_running_loss}, elapsed_time: {time.time() - start}')
 
 ###### 5. Model evaluation and visualization ######
