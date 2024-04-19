@@ -24,7 +24,8 @@ DEVICE = 'cuda'  # 'cpu' or 'cuda'
 DATA_SAVE_ROOT = '/scripts/examples/segmentation/datasets'  # Directory for Saved dataset
 PARAMS_SAVE_ROOT = '/scripts/examples/segmentation/params'  # Directory for Saved parameters
 FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
-SAME_IMG_SIZE = True  # Whether the resized image sizes are the same or not
+SAME_IMG_SIZE = False  # Whether the resized image sizes are the same or not
+SKIP_SINGLE_BATCH = False  # Should be set to True if 1D BatchNormalization layer is included in the model (e.g. DeepLabV3). If True, a batch with single sample is ignored
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
@@ -147,29 +148,54 @@ optimizer = optim.Adam(params, lr=0.0005)  # Optimizer (Adam). Only parameters i
 
 ###### 4. Training ######
 def train_batch(imgs: torch.Tensor, targets: torch.Tensor,
-                model: _SimpleSegmentationModel, optimizer: torch.optim.Optimizer, criterion):
-    """Train one batch"""
+                model: _SimpleSegmentationModel, optimizer: torch.optim.Optimizer, criterion,
+                skip_single_batch: bool = False):
+    """
+    Validate one batch
+
+    Parameters
+    ----------
+    skip_single_batch : bool
+        Should be set to True if 1D BatchNormalization layer is included in the model (e.g. DeepLabV3). If True, a batch with single sample is ignored
+    """
+    # Skip the calculation if the number of images is 1
+    if skip_single_batch and len(imgs) == 1:
+        return torch.Tensor([0.0]), 1
     # Send images and labels to GPU
     imgs = imgs.to(device)
     targets = targets.to(device)
-    # Update parameters
-    optimizer.zero_grad()  # Initialize gradient
+    # Calculate the loss
     output = model(imgs)  # Forward (Prediction)
     loss = criterion(output, targets)  # Calculate criterion
+    # Update parameters
+    optimizer.zero_grad()  # Initialize gradient
     loss.backward()  # Backpropagation (Calculate gradient)
     optimizer.step()  # Update parameters (Based on optimizer algorithm)
-    return loss
+    return loss, 0
 
 def validate_batch(val_imgs: torch.Tensor, val_targets: torch.Tensor,
-                   model: _SimpleSegmentationModel, criterion):
-    """Validate one batch"""
+                   model: _SimpleSegmentationModel, criterion,
+                   skip_single_batch: bool = False):
+    """
+    Validate one batch
+
+    Parameters
+    ----------
+    skip_single_batch : str
+        Should be set to True if 1D BatchNormalization layer is included in the model (e.g. DeepLabV3). If True, a batch with single sample is ignored
+    """
+    # Skip the calculation if the number of images is 1
+    if skip_single_batch and len(val_imgs) == 1:
+        return torch.Tensor([0.0]), 1
+    # Calculate the loss
     val_imgs = val_imgs.to(device)
     val_targets = val_targets.to(device)
     val_output = model(val_imgs)  # Forward (Prediction)
     val_loss = criterion(val_output, val_targets)  # Calculate criterion
-    return val_loss
+    return val_loss, 0
 
 # https://github.com/pytorch/vision/tree/main/references/segmentation
+model.train()  # Set the training mode
 losses = []  # Array for string loss (criterion)
 val_losses = []  # Array for validation loss
 start = time.time()  # For elapsed time
@@ -178,38 +204,50 @@ for epoch in range(NUM_EPOCHS):
     # Initialize training metrics
     model.train()  # Set the training mode
     running_loss = 0.0  # Initialize running loss
-    running_acc = 0.0  # Initialize running accuracy
+    n_skipped_batches = 0
     # Mini-batch loop
     for i, (imgs, targets) in enumerate(train_loader):
         # Training
         if SAME_IMG_SIZE:
-            loss = train_batch(imgs, targets, model, optimizer, criterion)
+            loss, skipped = train_batch(imgs, targets, model, optimizer, criterion, skip_single_batch=SKIP_SINGLE_BATCH)
             running_loss += loss.item()  # Update running loss
+            n_skipped_batches += skipped
         else:  # Separate the batch into each sample if the image sizes are different
+            n_skipped = 0
             for img, target in zip(imgs, targets):
-                loss = train_batch(img.unsqueeze(0), target.unsqueeze(0), model, optimizer, criterion)
+                loss, skipped = train_batch(img.unsqueeze(0), target.unsqueeze(0), model, optimizer, criterion, skip_single_batch=SKIP_SINGLE_BATCH)
                 running_loss += loss.item() / len(imgs)  # Update running loss
+                n_skipped += skipped
+            n_skipped_batches += n_skipped / len(imgs)
         if i%100 == 0:  # Show progress every 100 times
             print(f'minibatch index: {i}/{len(train_loader)}, elapsed_time: {time.time() - start}')
+    # Raise exception if all the batches are skipped
+    if len(train_loader) == n_skipped_batches:
+        raise Exception('All the batches are skipped. Please make sure the batch size is more than 2')
     # Calculate average of running losses and accs
-    running_loss /= len(train_loader)
+    running_loss /= len(train_loader) - n_skipped_batches
     losses.append(running_loss)
 
     # Calculate validation metrics (https://pytorch.org/tutorials/beginner/introyt/trainingyt.html#per-epoch-activity)
-    model.eval()  # Set the evaluation mode
+    # model.eval()  # Set the evaluation mode (Disabled to calculate the same loss as that of the training)
     val_running_loss = 0.0  # Initialize validation running loss
+    n_skipped_batches = 0
     with torch.no_grad():
         for i, (val_imgs, val_targets) in enumerate(val_loader):
             if SAME_IMG_SIZE:
-                val_loss = validate_batch(val_imgs, val_targets, model, criterion)
+                val_loss, skipped = validate_batch(val_imgs, val_targets, model, criterion, skip_single_batch=SKIP_SINGLE_BATCH)
                 val_running_loss += val_loss.item()  # Update running loss
-            else:  # Separate the batch into each sample if the image sizes are different            
+                n_skipped_batches += skipped
+            else:  # Separate the batch into each sample if the image sizes are different
+                n_skipped = 0
                 for val_img, val_target in zip(val_imgs, val_targets):
-                    val_loss = validate_batch(val_img.unsqueeze(0), val_target.unsqueeze(0), model, criterion)
+                    val_loss, skipped = validate_batch(val_img.unsqueeze(0), val_target.unsqueeze(0), model, criterion, skip_single_batch=SKIP_SINGLE_BATCH)
                     val_running_loss += val_loss.item() / len(imgs)  # Update running loss
+                    n_skipped += skipped
+                n_skipped_batches += n_skipped / len(val_imgs)
             if i%100 == 0:  # Show progress every 100 times
                 print(f'val minibatch index: {i}/{len(val_loader)}, elapsed_time: {time.time() - start}')
-    val_running_loss /= len(val_loader)
+    val_running_loss /= (len(val_loader) - n_skipped_batches)
     val_losses.append(val_running_loss)
 
     print(f'epoch: {epoch}, loss: {running_loss}, val_loss: {val_running_loss}, elapsed_time: {time.time() - start}')
