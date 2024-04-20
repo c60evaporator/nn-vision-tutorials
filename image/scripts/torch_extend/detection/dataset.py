@@ -81,7 +81,7 @@ class DetectionOutput():
 
 class CocoDetectionTV(CocoDetection, DetectionOutput):
     """
-    Dataset from YOLO format to Torchvision format with image path
+    Dataset from COCO format to Torchvision format with image path
 
     Parameters
     ----------

@@ -103,7 +103,6 @@ display_iter = iter(display_loader)
 imgs, targets = next(display_iter)
 for i, (img, target) in enumerate(zip(imgs, targets)):
     img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]
-    #labels = [idx_to_class[label.item()] for label in labels]  # Change labels from index to str
     show_segmentations(img, target, idx_to_class, bg_idx=0, border_idx=len(CLASS_TO_IDX))
 # Load validation dataset
 val_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
