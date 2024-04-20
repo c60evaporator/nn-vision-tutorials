@@ -36,9 +36,9 @@ def segmentation_ious_one_image(labels_pred: Tensor, target: Tensor, labels: Lis
     ious = np.divide(tps, union.astype(np.float32), out=np.full((len(labels),), np.nan), where=(union!=0))
     return ious, tps, fps, fns
 
-def segmentation_ious(prediction_list: List[Dict[Literal['out', 'aux'], Tensor]],
-                      target_list: List[Tensor],
-                      idx_to_class: Dict[int, str], border_idx:int = None):
+def segmentation_ious_batch(predictions: Dict[Literal['out', 'aux'], Tensor],
+                            targets: List[Tensor],
+                            idx_to_class: Dict[int, str], border_idx:int = None):
     """
     Calculate the average precision of each class label
 
@@ -48,10 +48,10 @@ def segmentation_ious(prediction_list: List[Dict[Literal['out', 'aux'], Tensor]]
     
     Parameters
     ----------
-    prediction_list : List[Dict[Literal['out', 'aux'], Tensor(class x H x W)]]
+    predictions : List[Dict[Literal['out', 'aux'], Tensor(image_idx x class x H x W)]]
         List of the predicted segmentation images
 
-    target_list : List[Tensor(H x W)]
+    targets : List[Tensor(image_idx x H x W)]
         List of the true segmentation images
 
     idx_to_class : Dict[int, str]
@@ -66,43 +66,30 @@ def segmentation_ious(prediction_list: List[Dict[Literal['out', 'aux'], Tensor]]
         Calculated average precisions with the label_names and the PR Curve
     """
     # List for storing scores
-    tps_all = []
-    fps_all = []
-    fns_all = []
+    tps_batch = []
+    fps_batch = []
+    fns_batch = []
     ###### Calculate IoUs of each image ######
     # Add the border label to idx_to_class
     idx_to_class_bd = {k: v for k, v in idx_to_class.items()}
     if border_idx is not None:
         idx_to_class_bd[border_idx] = 'border'
     # Loop of images
-    for i, (prediction, target) in enumerate(zip(prediction_list, target_list)):
+    for i, (prediction, target) in enumerate(zip(predictions['out'], targets)):
         # Get the predicted labels
-        labels_pred = prediction['out'].argmax(0)
+        labels_pred = prediction.argmax(0)
         # Calculate the IoUs
         ious, tps, fps, fns = segmentation_ious_one_image(labels_pred, target, labels=list(idx_to_class_bd.keys()))
-        tps_all.append(tps)
-        fps_all.append(fps)
-        fns_all.append(fns)
-        if i % 500 == 0:  # Show progress every 500 images
-            print(f'Calculating IoUs: {i}/{len(prediction_list)} images')
+        tps_batch.append(tps)
+        fps_batch.append(fps)
+        fns_batch.append(fns)
     ###### Accumulate IoUs ######
-    tps_all = np.array(tps_all).sum(axis=0)
-    fps_all = np.array(fps_all).sum(axis=0)
-    fns_all = np.array(fns_all).sum(axis=0)
-    ious_all = tps_all / (tps_all + fps_all + fns_all)
-    # Store the result
-    iou_dict = {
-        k: {
-            'label_name': v,
-            'tps': tps_all[i],
-            'fps': fps_all[i],
-            'fns': fns_all[i],
-            'iou': ious_all[i]
-        }
-        for i, (k, v) in enumerate(idx_to_class.items()) 
-    }
-
-    return iou_dict
+    tps_batch = np.array(tps_batch).sum(axis=0)
+    fps_batch = np.array(fps_batch).sum(axis=0)
+    fns_batch = np.array(fns_batch).sum(axis=0)
+    union_batch = tps_batch + fps_batch + fns_batch
+    ious_batch = np.divide(tps_batch, union_batch.astype(np.float32), out=np.full((len(tps_batch),), np.nan), where=(union_batch!=0))
+    return tps_batch, fps_batch, fns_batch, ious_batch
 
 def segmentation_ious_torchvison(dataloader: DataLoader, model: nn.Module, device: Literal['cuda', 'cpu'],
                                  idx_to_class: Dict[int, str], border_idx:int = None):
@@ -129,18 +116,39 @@ def segmentation_ious_torchvison(dataloader: DataLoader, model: nn.Module, devic
         Calculated average precisions with the label_names and the PR Curve
     """
     # Predict
-    target_list = []
-    prediction_list = []
+    tps_all = []
+    fps_all = []
+    fns_all = []
     start = time.time()  # For elapsed time
+    # Batch iteration
     for i, (imgs, targets) in enumerate(dataloader):
         imgs_gpu = imgs.to(device)
         model.eval()  # Set the evaluation mode
         with no_grad():  # Avoid memory overflow
             predictions = model(imgs_gpu)
-        # Store the result
-        target_list.extend([target for target in targets])
-        prediction_list.extend([{'out': out} for out in predictions['out']])
+        # Calculate TP, FP, FN of the batch
+        tps_batch, fps_batch, fns_batch, ious_batch = segmentation_ious_batch(predictions, targets, idx_to_class, border_idx)
+        tps_all.append(tps_batch)
+        fps_all.append(fps_batch)
+        fns_all.append(fns_batch)
         if i%100 == 0:  # Show progress every 100 images
-            print(f'Prediction for mAP: {i}/{len(dataloader)} batches, elapsed_time: {time.time() - start}')
-    ious_all = segmentation_ious(prediction_list, target_list, idx_to_class, border_idx)
-    return ious_all
+            print(f'Prediction for mIoU: {i}/{len(dataloader)} batches, elapsed_time: {time.time() - start}')
+    tps_all = np.array(tps_all).sum(axis=0)
+    fps_all = np.array(fps_all).sum(axis=0)
+    fns_all = np.array(fns_all).sum(axis=0)
+    union_all = tps_all + fps_all + fns_all
+    ious_all = np.divide(tps_all, union_all.astype(np.float32), out=np.full((len(tps_all),), np.nan), where=(union_all!=0))
+
+    # Store the result
+    iou_dict = {
+        k: {
+            'label_name': v,
+            'tps': tps_all[i],
+            'fps': fps_all[i],
+            'fns': fns_all[i],
+            'iou': ious_all[i]
+        }
+        for i, (k, v) in enumerate(idx_to_class.items()) 
+    }
+
+    return iou_dict

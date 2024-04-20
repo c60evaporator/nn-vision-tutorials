@@ -277,7 +277,8 @@ def average_precisions_torchvison(dataloader: DataLoader, model: nn.Module, devi
             predictions = model(imgs_gpu)
         # Store the result
         targets_list.extend(targets)
-        predictions_list.extend(predictions)
+        predictions_cpu = [{k: v.cpu() for k, v in pred.items()} for pred in predictions]
+        predictions_list.extend(predictions_cpu)
         if i%100 == 0:  # Show progress every 100 images
             print(f'Prediction for mAP: {i}/{len(dataloader)} batches, elapsed_time: {time.time() - start}')
     aps = average_precisions(predictions_list, targets_list, idx_to_class, iou_threshold, conf_threshold)
