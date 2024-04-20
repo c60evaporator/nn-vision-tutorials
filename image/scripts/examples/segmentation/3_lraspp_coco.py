@@ -25,10 +25,10 @@ NUM_LOAD_WORKERS = 4  # Number of workers for DataLoader (Multiple workers not w
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
 DATA_SAVE_ROOT = '/scripts/examples/segmentation/datasets'  # Directory for Saved dataset
 PARAMS_SAVE_ROOT = '/scripts/examples/segmentation/params'  # Directory for Saved parameters
-FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
+FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning). If False, conduct fine tuning
 SAME_IMG_SIZE = True  # Whether the resized image sizes are the same or not
 SKIP_SINGLE_BATCH = False  # Should be set to True if 1D BatchNormalization layer is included in the model (e.g. DeepLabV3). If True, a batch with single sample is ignored
-DEFAULT_N_CLASSES = False  # Whether the number of classes is the same as the default of the model
+REPLACE_WHOLE_CLASSIFIER = False  # If True, all layers in the classifier is replaced for transefer tuning. If False, only the last layer is replaced
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
@@ -103,26 +103,26 @@ val_reverse_transform = transforms.Compose([
 
 ###### 2. Define Model ######
 # Load a pretrained network (https://www.kaggle.com/code/dasmehdixtr/load-finetune-pretrained-model-in-pytorch)
-weights_backbone = models.MobileNet_V3_Large_Weights.IMAGENET1K_V1
-model = models.segmentation.lraspp_mobilenet_v3_large(weights_backbone=weights_backbone, num_classes=len(idx_to_class))
+weights = models.segmentation.LRASPP_MobileNet_V3_Large_Weights.DEFAULT
+model = models.segmentation.lraspp_mobilenet_v3_large(weights=weights)
 # Freeze pretrained parameters
 if FREEZE_PRETRAINED:
     for param in model.parameters():
         param.requires_grad = False
 # Replace last layers for fine tuning
-# If the number of classes is the same as the default of the model
-if DEFAULT_N_CLASSES:
-    # Modify the last Conv layer of the low_classifier and the high_classifier
-    low_channels = model.classifier.low_classifier.in_channels  # Input channels of the low_classifier
-    inter_channels = model.classifier.high_classifier.in_channels  # Input channels of the high_classifier
-    model.classifier.low_classifier = nn.Conv2d(low_channels, num_classes, 1)  # Last Conv layer of the low_classifier
-    model.classifier.high_classifier = nn.Conv2d(inter_channels, num_classes, 1)  # Last Conv layer of the high_classifier 
-# If the number of classes is different from the default of the model
-else:
+if REPLACE_WHOLE_CLASSIFIER:
+    # Replace all layes in the classifier
     low_channels = model.classifier.low_classifier.in_channels
     high_channels = model.classifier.cbr[0].in_channels
     inter_channels = model.classifier.high_classifier.in_channels
     model.classifier = models.segmentation.lraspp.LRASPPHead(low_channels, high_channels, num_classes, inter_channels)
+else:
+    # Replace the last Conv layer of the low_classifier and the high_classifier
+    low_channels = model.classifier.low_classifier.in_channels  # Input channels of the low_classifier
+    inter_channels = model.classifier.high_classifier.in_channels  # Input channels of the high_classifier
+    model.classifier.low_classifier = nn.Conv2d(low_channels, num_classes, 1)  # Last Conv layer of the low_classifier
+    model.classifier.high_classifier = nn.Conv2d(inter_channels, num_classes, 1)  # Last Conv layer of the high_classifier 
+    
 
 print(model)
 # Send the model to GPU

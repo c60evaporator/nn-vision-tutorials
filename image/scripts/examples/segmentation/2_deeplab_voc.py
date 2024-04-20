@@ -25,9 +25,10 @@ NUM_LOAD_WORKERS = 4  # Number of workers for DataLoader (Multiple workers not w
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
 DATA_SAVE_ROOT = '/scripts/examples/segmentation/datasets'  # Directory for Saved dataset
 PARAMS_SAVE_ROOT = '/scripts/examples/segmentation/params'  # Directory for Saved parameters
-FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
+FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning). If False, conduct fine tuning
 SAME_IMG_SIZE = True  # Whether the resized image sizes are the same or not
 SKIP_SINGLE_BATCH = True  # Should be set to True if 1D BatchNormalization layer is included in the model (e.g. DeepLabV3). If True, a batch with single sample is ignored
+REPLACE_WHOLE_CLASSIFIER = False  # If True, all layers in the classifier is replaced for transefer tuning. If False, only the last layer is replaced
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
@@ -119,15 +120,21 @@ val_reverse_transform = transforms.Compose([
 ###### 2. Define Model ######
 # Load a pretrained network (https://www.kaggle.com/code/dasmehdixtr/load-finetune-pretrained-model-in-pytorch)
 weights = models.segmentation.DeepLabV3_ResNet50_Weights.DEFAULT
-model = models.segmentation.deeplabv3_resnet50(weights=weights, num_classes=len(CLASS_TO_IDX))
+model = models.segmentation.deeplabv3_resnet50(weights=weights)
 # Freeze pretrained parameters
 if FREEZE_PRETRAINED:
     for param in model.parameters():
         param.requires_grad = False
-# Modify the last Conv layer of the classifier and the aux_classifier 
-inter_channels_aux = model.aux_classifier[4].in_channels  # Input channels of the aux_classifier
-model.classifier[4] = nn.Conv2d(256, num_classes, 1)  # Last Conv layer of the classifier
-model.aux_classifier[4] = nn.Conv2d(inter_channels_aux, num_classes, 1)  # Last Conv layer of the classifier 
+# Replace last layers for fine tuning
+if REPLACE_WHOLE_CLASSIFIER:
+    # Replace all layes in the classifier
+    model.aux_classifier = models.segmentation.fcn.FCNHead(1024, num_classes)
+    model.classifier = models.segmentation.deeplabv3.DeepLabHead(2048, num_classes)
+else:
+    # Replace the last Conv layer of the classifier and the aux_classifier 
+    inter_channels_aux = model.aux_classifier[4].in_channels  # Input channels of the aux_classifier
+    model.classifier[4] = nn.Conv2d(256, num_classes, 1)  # Last Conv layer of the classifier
+    model.aux_classifier[4] = nn.Conv2d(inter_channels_aux, num_classes, 1)  # Last Conv layer of the classifier
 print(model)
 # Send the model to GPU
 model.to(device)
