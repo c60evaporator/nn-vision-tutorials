@@ -26,27 +26,28 @@ DEVICE = 'cuda'  # 'cpu' or 'cuda'
 DATA_SAVE_ROOT = '/scripts/examples/object_detection/datasets'  # Directory for Saved dataset
 PARAMS_SAVE_ROOT = '/scripts/examples/object_detection/params'  # Directory for Saved parameters
 FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
-CLASS_TO_IDX = {
-    'person': 0,
-    'bird': 1,
-    'cat': 2,
-    'cow': 3,
-    'dog': 4,
-    'horse': 5,
-    'sheep': 6,
-    'aeroplane': 7,
-    'bicycle': 8,
-    'boat': 9,
-    'bus': 10,
-    'car': 11,
-    'motorbike': 12,
-    'train': 13,
-    'bottle': 14,
-    'chair': 15,
-    'diningtable': 16,
-    'pottedplant': 17,
+CLASS_TO_IDX = {  # https://github.com/matlab-deep-learning/Object-Detection-Using-Pretrained-YOLO-v2/blob/main/+helper/pascal-voc-classes.txt
+    'background': 0,
+    'aeroplane': 1,
+    'bicycle': 2,
+    'bird': 3,
+    'boat': 4,
+    'bottle': 5,
+    'bus': 6,
+    'car': 7,
+    'cat': 8,
+    'chair': 9,
+    'cow': 10,
+    'diningtable': 11,
+    'dog': 12,
+    'horse': 13,
+    'motorbike': 14,
+    'person': 15,
+    'pottedplant': 16,
+    'sheep': 17,
     'sofa': 18,
-    'tvmonitor': 19
+    'train': 19,
+    'tvmonitor': 20
     }
 
 # Confirm GPU availability
