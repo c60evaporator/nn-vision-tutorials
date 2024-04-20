@@ -11,9 +11,11 @@ import matplotlib.pyplot as plt
 import time
 import os
 import sys
+import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from torch_extend.segmentation.display import show_segmentations, show_predicted_segmentation_minibatch
+from torch_extend.segmentation.metrics import segmentation_ious_torchvison
 
 SEED = 42
 BATCH_SIZE = 8  # Batch size
@@ -289,5 +291,9 @@ imgs_display = [val_reverse_transform(img) for img in imgs]
 show_predicted_segmentation_minibatch(imgs_display, predictions, targets, idx_to_class,
                                       bg_idx=0, border_idx=len(CLASS_TO_IDX), plot_raw_image=True,
                                       max_displayed_images=NUM_DISPLAYED_IMAGES)
+
+# %% Calculate mean IoU
+ious_all = segmentation_ious_torchvison(val_loader, model, device, idx_to_class, border_idx=len(CLASS_TO_IDX))
+print(pd.DataFrame([v for k, v in ious_all.items()]))
 
 # %%

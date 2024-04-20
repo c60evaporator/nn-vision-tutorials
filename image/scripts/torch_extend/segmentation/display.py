@@ -6,6 +6,8 @@ import seaborn as sns
 import numpy as np
 from PIL import Image
 
+from .metrics import segmentation_ious_one_image
+
 # def _create_segmentation_palette():
 #     BLIGHTNESSES = [0, 64, 128, 192]
 #     len_blt = len(BLIGHTNESSES)
@@ -50,11 +52,11 @@ def _array1d_to_pil_image(array: torch.Tensor, palette: List[List[int]], bg_idx=
     pil_out.putpalette(np.array(palette, dtype=np.uint8))
     return pil_out
 
-def show_segmentation(image, target, 
+def show_segmentation(image, target,
                       alpha=0.5, palette=None,
                       bg_idx=0, border_idx=None,
                       add_legend=True, idx_to_class=None,
-                      plot_raw_image=True,
+                      plot_raw_image=True, iou_scores=None, score_decimal=3,
                       ax=None):
     """
     Show the image with the segmentation.
@@ -81,6 +83,10 @@ def show_segmentation(image, target,
         If None, class ID is used for the plot
     plot_raw_image : bool
         If True, the raw image is plotted as the background
+    iou_scores : Dict[int, float]
+        A dict of IoU scores whose keys are the indices of the label. If None, IoU scores are not displayed.
+    score_decimal : int
+        A decimal for the displayed confidence scores. Available only if iou_scores is True
     ax : matplotlib Axes
         Axes object to draw the plot onto, otherwise uses the current Axes.
     """
@@ -107,11 +113,15 @@ def show_segmentation(image, target,
         # Add the border label to idx_to_class
         if border_idx is not None:
             idx_to_class_bd[border_idx] = 'border'
+        # Make the label text with IoU scores
+        label_dict = {k: v for k, v in idx_to_class_bd.items()}
+        if iou_scores is not None:
+            label_dict = {k: f'{v}, IoU={round(iou_scores[k], score_decimal)}' for k, v in label_dict.items()}
         # Add legend
         handles = [mpatches.Patch(facecolor=(palette[label][0]/255,
                                          palette[label][1]/255,
                                          palette[label][2]/255), 
-                              label=idx_to_class_bd[label])
+                              label=label_dict[label])
                for label in labels_unique]
         ax.legend(handles=handles)
 
@@ -159,7 +169,8 @@ def show_predicted_segmentation_minibatch(imgs, predictions, targets, idx_to_cla
                                           alpha=0.5, palette=None,
                                           bg_idx=0, border_idx=None,
                                           plot_raw_image=True,
-                                          max_displayed_images=None):
+                                          max_displayed_images=None,
+                                          calc_iou=True):
     """
     Show predicted minibatch images with predicted and true segmentation.
 
@@ -168,7 +179,7 @@ def show_predicted_segmentation_minibatch(imgs, predictions, targets, idx_to_cla
     imgs : torch.Tensor (image_idx x C x H x W)
         Images which are standardized to [0, 1]
     
-    predictions : Dict[str, Tensor(image_idx x H x W)] (TorchVision segmentation prediction format)
+    predictions : Dict[Literal['out', 'aux'], Tensor(image_idx x class x H x W)] (TorchVision segmentation prediction format)
         List of the prediction result. The format should be as follows. 'out' indicates the probability of each classes and 'aux' is not useful (https://pytorch.org/hub/pytorch_vision_deeplabv3_resnet101/)
 
         {'out': Tensor(image_idx x class x H x W), 'aux': Tensor(image_idx x class x H x W)}
@@ -179,6 +190,9 @@ def show_predicted_segmentation_minibatch(imgs, predictions, targets, idx_to_cla
     idx_to_class : Dict[int, str]
         A dict for converting class IDs to class names.
         If None, class ID is used for the plot
+
+    calc_iou : bool
+        If True, the IoU is calculated and displayed with the label
 
     alpha : float
         Transparency of the segmentation 
@@ -216,10 +230,20 @@ def show_predicted_segmentation_minibatch(imgs, predictions, targets, idx_to_cla
         # Plot the row image
         axes[1].imshow(img.permute(1, 2, 0))
         axes[1].set_title('Raw image')
+        # Calculate IoU
+        if calc_iou:
+            idx_to_class_bd = {k: v for k, v in idx_to_class.items()}
+            if border_idx is not None:
+                idx_to_class_bd[border_idx] = 'border'
+            ious, _, _, _ = segmentation_ious_one_image(predicted_labels, target, list(idx_to_class_bd.keys()))
+            iou_scores = {
+                k: ious[i]
+                for i, (k, v) in enumerate(idx_to_class_bd.items())
+            }
         # Plot the predicted segmentation
         show_segmentation(img, predicted_labels, alpha, palette, bg_idx, border_idx, 
                           add_legend=True, idx_to_class=idx_to_class, 
-                          plot_raw_image=plot_raw_image, ax=axes[2])
+                          plot_raw_image=plot_raw_image, iou_scores=iou_scores, ax=axes[2])
         axes[2].set_title('Predicted segmentation')
         plt.show()
         if max_displayed_images is not None and i >= max_displayed_images - 1:
