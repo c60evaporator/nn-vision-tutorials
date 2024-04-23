@@ -5,7 +5,7 @@ services:
     container_name: ${IMAGE_HOST}
     image: pytorch_image # Specify the image name
     build:
-      context: $PWD/image
+      context: $PWD
       shm_size: '16gb'  # Increase shared memory size for NN Training
       dockerfile: Dockerfile
       args:
@@ -14,7 +14,7 @@ services:
       - PYTHONPATH=/repos/YOLOX:$PYTHONPATH  # YOLOX and DETR Installation folder (Not necessary. Only for autocomplete)
     volumes:
       # Share the volumes between external folder and internal container
-      - $PWD/image/scripts:/scripts  # Scripts
+      - $PWD/scripts:/scripts  # Scripts
     ports:
       # Expose a port for external access
       - 80:6006  # Tensorboard
@@ -29,5 +29,20 @@ services:
     # Startup command
     command:
       bash
-  # Container for a web app showing annotation data
-  #display_app:
+  # Container for a web app showing annotation data and inference result
+  image_app:
+    container_name: image_app
+    image: streamlit_pytorch # Docker image
+    build:
+      context: $PWD/image_app
+      dockerfile: Dockerfile
+    ports:
+      # Expose port 8080 for the API (Port 8501 in Docker container)
+      - 8080:8501
+    volumes:
+      # Mount the /app folder
+      - $PWD/image_app/app:/app
+      # Mount the folder that includes models and data
+      - $PWD/image/scripts/examples:/data
+      # Mount the folder that includes utility scripts
+      - $PWD/image/scripts/torch_extend:/app/torch_extend

@@ -1,15 +1,14 @@
-# %% Pascal VOC + RetinaNet (ResNet50+FPN) + Fine Tuning (tune=classification_head, transfer=classification_head.cls_logits)
+# %% Pascal VOC + Faseter R-CNN (ResNet50+FPN) + Fine Tuning (tune=After 2nd ResNet Layer, transfer=box_predictor)
+# https://pytorch.org/examples/intermediate/torchvision_tutorial.html
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms, models
-from torchvision.models.detection.retinanet import RetinaNet
+from torchvision.models.detection.generalized_rcnn import GeneralizedRCNN
 from torchvision.datasets import VOCDetection
 import matplotlib.pyplot as plt
 import time
 import os
-import math
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -23,8 +22,8 @@ NUM_EPOCHS = 2  # number of epochs
 NUM_DISPLAYED_IMAGES = 10  # number of displayed images
 NUM_LOAD_WORKERS = 2  # Number of workers for DataLoader (Multiple workers not work in original dataset)
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
-DATA_SAVE_ROOT = '/scripts/examples/object_detection/datasets'  # Directory for Saved dataset
-PARAMS_SAVE_ROOT = '/scripts/examples/object_detection/params'  # Directory for Saved parameters
+DATA_SAVE_ROOT = '/scripts/datasets/object_detection'  # Directory for Saved dataset
+PARAMS_SAVE_ROOT = '/scripts/params/object_detection'  # Directory for Saved parameters
 FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
 CLASS_TO_IDX = {  # https://github.com/matlab-deep-learning/Object-Detection-Using-Pretrained-YOLO-v2/blob/main/+helper/pascal-voc-classes.txt
     'background': 0,
@@ -82,6 +81,7 @@ imgs, targets = next(train_iter)
 for i, (img, target) in enumerate(zip(imgs, targets)):
     img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]
     boxes, labels = target['boxes'], target['labels']
+    # Show bounding boxes
     show_bounding_boxes(img, boxes, labels=labels, idx_to_class=idx_to_class)
     plt.show()
 # Load validation dataset
@@ -92,34 +92,30 @@ val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_wo
 
 ###### 2. Define Model ######
 # Load a pretrained model
-model = models.detection.retinanet_resnet50_fpn(pretrained=True)
+model = models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+#print(model)
 # Freeze pretrained parameters
 if FREEZE_PRETRAINED:
     for param in model.parameters():
         param.requires_grad = False
-# Modify the classification_head.cls_logits
-num_anchors = model.head.classification_head.num_anchors  # Number of anchors
-model.head.classification_head.num_classes = num_classes
-cls_logits = nn.Conv2d(256, num_anchors*num_classes, kernel_size=3, stride=1, padding=1)
-nn.init.normal_(cls_logits.weight, std=0.01)  # Initialize the weight
-nn.init.constant_(cls_logits.bias, -math.log((1-0.01)/0.01))  # Initialize the bias
-model.head.classification_head.cls_logits = cls_logits
+# Modify the box_predictor
+in_features = model.roi_heads.box_predictor.cls_score.in_features  # Number of features of Box Predictor
+model.roi_heads.box_predictor = models.detection.faster_rcnn.FastRCNNPredictor(in_features, num_classes)
 print(model)
-# Unfreeze parameters in classification_head
-for param in model.head.classification_head.parameters():
-    param.requires_grad = True
 # Send the model to GPU
 model.to(device)
 # Choose parameters to be trained
+#for p in model.parameters():
+#    print(f'{p.shape} {p.requires_grad}')
 params = [p for p in model.parameters() if p.requires_grad]
 
 ###### 3. Define Criterion & Optimizer ######
 def criterion(loss_dict):  # Criterion (Sum of all the losses)
     return sum(loss for loss in loss_dict.values())  
-optimizer = optim.SGD(params, lr=0.001, momentum=0.9)  # Optimizer (Adam). Only parameters in the final layer are set.
+optimizer = optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)  # Optimizer (Adam). Only parameters in the final layer are set.
 
 ###### 4. Training ######
-def train_one_epoch(model: RetinaNet, optimizer: torch.optim.Optimizer,
+def train_one_epoch(model: GeneralizedRCNN, optimizer: torch.optim.Optimizer,
                     data_loader: DataLoader, device: str, epoch: int):
     """
     Train the model in a epoch
@@ -161,7 +157,7 @@ def train_one_epoch(model: RetinaNet, optimizer: torch.optim.Optimizer,
     running_loss /= len(data_loader)
     return running_loss
 
-def evaluate(model: RetinaNet, data_loader: DataLoader, device: str):
+def evaluate(model: GeneralizedRCNN, data_loader: DataLoader, device: str):
     """
     Calculate validation metrics in a epoch
 
@@ -210,27 +206,27 @@ plt.show()
 params = model.state_dict()
 if not os.path.exists(PARAMS_SAVE_ROOT):
     os.makedirs(PARAMS_SAVE_ROOT)
-torch.save(params, f'{PARAMS_SAVE_ROOT}/pascalvoc_retinanet_fine.prm')
+torch.save(params, f'{PARAMS_SAVE_ROOT}/pascalvoc_fasterrcnn_fine.prm')
 
 ###### Inference in the first mini-batch ######
 # Reload parameters
-params_load = torch.load(f'{PARAMS_SAVE_ROOT}/pascalvoc_retinanet_fine.prm')
+params_load = torch.load(f'{PARAMS_SAVE_ROOT}/pascalvoc_fasterrcnn_fine.prm')
 model.load_state_dict(params_load)
 # Inference
 val_iter = iter(val_loader)
 imgs, targets = next(val_iter)
 imgs_gpu = [img.to(device) for img in imgs]
-model.eval()  # Set the evaluation smode
+model.eval()  # Set the evaluation mode
 predictions = model(imgs_gpu)
 # Class names dict with background
 idx_to_class_bg = {k: v for k, v in idx_to_class.items()}
 idx_to_class_bg[-1] = 'background'
-
+# Show the true and predicted bounding boxes
 show_predicted_detection_minibatch(imgs, predictions, targets, idx_to_class_bg, max_displayed_images=NUM_DISPLAYED_IMAGES)
 
 #%%
 ###### Calculate mAP ######
-aps = average_precisions_torchvison(val_loader, model, device, idx_to_class_bg, conf_threshold=0.2)
+aps = average_precisions_torchvison(val_loader, model, device, idx_to_class_bg, iou_threshold=0.5, conf_threshold=0.2)
 show_average_precisions(aps)
 
 # %%

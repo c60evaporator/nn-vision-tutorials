@@ -5,6 +5,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms, models
 from torchvision.models.segmentation._utils import _SimpleSegmentationModel
+from torchvision.datasets import VOCSegmentation
 from torchvision.transforms.functional import InterpolationMode
 import matplotlib.pyplot as plt
 import time
@@ -15,7 +16,6 @@ import pandas as pd
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from torch_extend.segmentation.display import show_segmentations, show_predicted_segmentation_minibatch
 from torch_extend.segmentation.metrics import segmentation_ious_torchvison
-from torch_extend.segmentation.dataset import CocoSegmentationTV
 
 SEED = 42
 BATCH_SIZE = 8  # Batch size
@@ -23,15 +23,38 @@ NUM_EPOCHS = 10  # number of epochs
 NUM_DISPLAYED_IMAGES = 10  # number of displayed images
 NUM_LOAD_WORKERS = 4  # Number of workers for DataLoader (Multiple workers not work in original dataset)
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
-DATA_SAVE_ROOT = '/scripts/examples/object_detection/datasets'  # Directory for Saved dataset
-PARAMS_SAVE_ROOT = '/scripts/examples/segmentation/params'  # Directory for Saved parameters
+DATA_SAVE_ROOT = '/scripts/datasets/object_detection'  # Directory for Saved dataset
+PARAMS_SAVE_ROOT = '/scripts/params/segmentation'  # Directory for Saved parameters
 FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning). If False, conduct fine tuning
 SAME_IMG_SIZE = True  # Whether the resized image sizes are the same or not
-SKIP_SINGLE_BATCH = False  # Should be set to True if 1D BatchNormalization layer is included in the model (e.g. DeepLabV3). If True, a batch with single sample is ignored
+SKIP_SINGLE_BATCH = True  # Should be set to True if 1D BatchNormalization layer is included in the model (e.g. DeepLabV3). If True, a batch with single sample is ignored
 REPLACE_WHOLE_CLASSIFIER = False  # If True, all layers in the classifier is replaced for transefer tuning. If False, only the last layer is replaced
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
+CLASS_TO_IDX = {  # https://github.com/NVIDIA/DIGITS/blob/master/examples/semantic-segmentation/pascal-voc-classes.txt
+    'background': 0,
+    'aeroplane': 1,
+    'bicycle': 2,
+    'bird': 3,
+    'boat': 4,
+    'bottle': 5,
+    'bus': 6,
+    'car': 7,
+    'cat': 8,
+    'chair': 9,
+    'cow': 10,
+    'diningtable': 11,
+    'dog': 12,
+    'horse': 13,
+    'motorbike': 14,
+    'person': 15,
+    'pottedplant': 16,
+    'sheep': 17,
+    'sofa': 18,
+    'train': 19,
+    'tvmonitor': 20
+    }
 
 # Confirm GPU availability
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -44,55 +67,48 @@ torch.manual_seed(SEED)
 # Define preprocessing of the image
 def collate_fn(batch):  # collate_fn is needed if the sizes of resized images are different
     return tuple(zip(*batch))
-# Recommended resize_size=520 but other size is available (https://pytorch.org/vision/main/models/generated/torchvision.models.segmentation.lraspp_mobilenet_v3_large.html)
+# Recommended resize_size=520 but other size is available (https://pytorch.org/vision/main/models/generated/torchvision.models.segmentation.deeplabv3_resnet50.html)
 transform = transforms.Compose([
     transforms.Resize((224, 224)),  # Resize the image to 224px x 224px
     transforms.ToTensor(),  # Convert from range [0, 255] to a torch.FloatTensor in the range [0.0, 1.0]
     transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)  # Normalization (mean and std of the imagenet dataset for normalizing)
 ])
-# Define preprocessing of the target for COCOSegmentation dataset (https://poutyne.org/examples/semantic_segmentation.html)
+# Define preprocessing of the target for VOCSegmentation dataset (https://poutyne.org/examples/semantic_segmentation.html)
+def replace_tensor_value_(tensor, a, border_class):
+    tensor[tensor == a] = border_class
+    return tensor
 target_transform = transforms.Compose([
     transforms.Resize((224, 224), interpolation=InterpolationMode.NEAREST),  # Resize the image to 224px x 224px
     transforms.PILToTensor(),  # Convert from PIL Image to a torch.FloatTensor in the range [0.0, 1.0]
-    transforms.Lambda(lambda x: x.squeeze(0).long())  # Squeeze the target
+    transforms.Lambda(lambda x: replace_tensor_value_(x.squeeze(0).long(), 255, len(CLASS_TO_IDX)))  # Replace the border to the border class ID
 ])
 # Define preprocessing for target
 # Load train dataset from image folder
-train_dataset = CocoSegmentationTV(root = f'{DATA_SAVE_ROOT}/COCO/val2017',
-                                   annFile = f'{DATA_SAVE_ROOT}/COCO/annotations/instances_val2017.json',
-                                   transform = transform, target_transform=target_transform)
+train_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
+                                image_set='train', download=True,
+                                transform = transform, target_transform=target_transform)
 # Define class names
-idx_to_class = {
-    v['id']: v['name']
-    for k, v in train_dataset.coco.cats.items()
-}
-idx_to_class[0] = 'background'  # Add a background label
-indices = [idx for idx in idx_to_class.keys()]
-na_cnt = 0
-for i in range(max(indices)):
-    if i not in indices:
-        na_cnt += 1
-        idx_to_class[i] = f'NA{"{:02}".format(na_cnt)}'
-num_classes = len(idx_to_class)
+idx_to_class = {v: k for k, v in CLASS_TO_IDX.items()}
+num_classes = len(idx_to_class) + 1  # Classification classes + 1 (border)
 # Define mini-batch DataLoader
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
                           collate_fn=None if SAME_IMG_SIZE else collate_fn)
 # Display images in the first mini-batch
-display_dataset = CocoSegmentationTV(root = f'{DATA_SAVE_ROOT}/COCO/val2017',
-                                     annFile = f'{DATA_SAVE_ROOT}/COCO/annotations/instances_val2017.json',
-                                     transform = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()]),
-                                     target_transform=target_transform)
+display_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
+                                  image_set='train', download=True,
+                                  transform = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()]),
+                                  target_transform=target_transform)
 display_loader = DataLoader(display_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
                             collate_fn=None if SAME_IMG_SIZE else collate_fn)
 display_iter = iter(display_loader)
 imgs, targets = next(display_iter)
 for i, (img, target) in enumerate(zip(imgs, targets)):
     img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]
-    show_segmentations(img, target, idx_to_class, bg_idx=0)
+    show_segmentations(img, target, idx_to_class, bg_idx=0, border_idx=len(CLASS_TO_IDX))
 # Load validation dataset
-val_dataset = CocoSegmentationTV(root = f'{DATA_SAVE_ROOT}/COCO/val2017',
-                                 annFile = f'{DATA_SAVE_ROOT}/COCO/annotations/instances_val2017.json',
-                                 transform = transform, target_transform=target_transform)
+val_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
+                              image_set='val', download=True,
+                              transform = transform, target_transform=target_transform)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
                         collate_fn=None if SAME_IMG_SIZE else collate_fn)
 # Reverse transform for showing the image
@@ -103,8 +119,8 @@ val_reverse_transform = transforms.Compose([
 
 ###### 2. Define Model ######
 # Load a pretrained network (https://www.kaggle.com/code/dasmehdixtr/load-finetune-pretrained-model-in-pytorch)
-weights = models.segmentation.LRASPP_MobileNet_V3_Large_Weights.DEFAULT
-model = models.segmentation.lraspp_mobilenet_v3_large(weights=weights)
+weights = models.segmentation.DeepLabV3_ResNet50_Weights.DEFAULT
+model = models.segmentation.deeplabv3_resnet50(weights=weights)
 # Freeze pretrained parameters
 if FREEZE_PRETRAINED:
     for param in model.parameters():
@@ -112,18 +128,13 @@ if FREEZE_PRETRAINED:
 # Replace last layers for fine tuning
 if REPLACE_WHOLE_CLASSIFIER:
     # Replace all layes in the classifier
-    low_channels = model.classifier.low_classifier.in_channels
-    high_channels = model.classifier.cbr[0].in_channels
-    inter_channels = model.classifier.high_classifier.in_channels
-    model.classifier = models.segmentation.lraspp.LRASPPHead(low_channels, high_channels, num_classes, inter_channels)
+    model.aux_classifier = models.segmentation.fcn.FCNHead(1024, num_classes)
+    model.classifier = models.segmentation.deeplabv3.DeepLabHead(2048, num_classes)
 else:
-    # Replace the last Conv layer of the low_classifier and the high_classifier
-    low_channels = model.classifier.low_classifier.in_channels  # Input channels of the low_classifier
-    inter_channels = model.classifier.high_classifier.in_channels  # Input channels of the high_classifier
-    model.classifier.low_classifier = nn.Conv2d(low_channels, num_classes, 1)  # Last Conv layer of the low_classifier
-    model.classifier.high_classifier = nn.Conv2d(inter_channels, num_classes, 1)  # Last Conv layer of the high_classifier 
-    
-
+    # Replace the last Conv layer of the classifier and the aux_classifier 
+    inter_channels_aux = model.aux_classifier[4].in_channels  # Input channels of the aux_classifier
+    model.classifier[4] = nn.Conv2d(256, num_classes, 1)  # Last Conv layer of the classifier
+    model.aux_classifier[4] = nn.Conv2d(inter_channels_aux, num_classes, 1)  # Last Conv layer of the classifier
 print(model)
 # Send the model to GPU
 model.to(device)
@@ -261,13 +272,13 @@ plt.show()
 params = model.state_dict()
 if not os.path.exists(PARAMS_SAVE_ROOT):
     os.makedirs(PARAMS_SAVE_ROOT)
-torch.save(params, f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn.prm')
+torch.save(params, f'{PARAMS_SAVE_ROOT}/vocsegmentation_deeplabv3.prm')
 
 
 # %%
 ###### Inference in the first mini-batch ######
 # Reload parameters
-params_load = torch.load(f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn.prm')
+params_load = torch.load(f'{PARAMS_SAVE_ROOT}/vocsegmentation_deeplabv3.prm')
 model.load_state_dict(params_load)
 # Inference
 val_iter = iter(val_loader)
@@ -284,11 +295,11 @@ else: # if the image sizes are different, inference should be conducted with one
 imgs_display = [val_reverse_transform(img) for img in imgs]
 # Show the image
 show_predicted_segmentation_minibatch(imgs_display, predictions, targets, idx_to_class,
-                                      bg_idx=0, plot_raw_image=True,
+                                      bg_idx=0, border_idx=len(CLASS_TO_IDX), plot_raw_image=True,
                                       max_displayed_images=NUM_DISPLAYED_IMAGES)
 
 # %% Calculate mean IoU
-ious_all = segmentation_ious_torchvison(val_loader, model, device, idx_to_class)
+ious_all = segmentation_ious_torchvison(val_loader, model, device, idx_to_class, border_idx=len(CLASS_TO_IDX))
 print(pd.DataFrame([v for k, v in ious_all.items()]))
 
 # %%

@@ -23,12 +23,12 @@ NUM_EPOCHS = 10  # number of epochs
 NUM_DISPLAYED_IMAGES = 10  # number of displayed images
 NUM_LOAD_WORKERS = 2  # Number of workers for DataLoader (Multiple workers need much memory, so if the error "RuntimeError: DataLoader worker (pid ) is killed by signal" occurs, you should set it 0)
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
-DATA_SAVE_ROOT = '/scripts/examples/object_detection/datasets'  # Directory for Saved dataset
+DATA_SAVE_ROOT = '/scripts/datasets/object_detection'  # Directory for Saved dataset
 DATASET_NAME = 'mini-coco128'
 RESULTS_SAVE_ROOT = '/scripts/examples/object_detection/results'
-PARAMS_SAVE_ROOT = '/scripts/examples/object_detection/params'  # Directory for Saved parameters
+PARAMS_SAVE_ROOT = '/scripts/params/object_detection'  # Directory for Saved parameters
 DETR_ROOT = '/repos/DETR/detr'  # YOLOX (Clone from https://github.com/Megvii-BaseDetection/YOLOX)
-PRETRAINED_WEIGHT = '/scripts/examples/object_detection/pretrained_weights/detr-r50-e632da11.pth'  # Pretrained weight for DETR (Download from https://github.com/facebookresearch/detr/tree/main?tab=readme-ov-file#model-zoo)
+PRETRAINED_WEIGHT = '/scripts/pretrained_weights/object_detection/detr-r50-e632da11.pth'  # Pretrained weight for DETR (Download from https://github.com/facebookresearch/detr/tree/main?tab=readme-ov-file#model-zoo)
 SAME_IMG_SIZE = False  # Whether the resized image sizes are the same or not
 PROB_THRESHOLD = 0.8  # Threshold for the class probability
 

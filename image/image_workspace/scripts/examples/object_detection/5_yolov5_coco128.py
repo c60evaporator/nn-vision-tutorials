@@ -1,5 +1,5 @@
-#%% coco128(YOLO format) + YOLOv8
-from ultralytics import YOLO
+#%% coco128(YOLO format) + YOLOv5
+# https://docs.ultralytics.com/yolov5/examples/pytorch_hub_model_loading/
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -10,28 +10,28 @@ import time
 import os
 from zipfile import ZipFile
 import yaml
+import subprocess
 import shutil
-from datetime import datetime
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from torch_extend.detection.dataset import YoloDetectionTV
-from torch_extend.detection.torchhub_utils import convert_yolov8_hub_result
+from torch_extend.detection.torchhub_utils import convert_yolov5_hub_result
 from torch_extend.detection.display import show_bounding_boxes, show_predicted_detection_minibatch, show_average_precisions
 from torch_extend.detection.metrics import average_precisions
 
 SEED = 42
 BATCH_SIZE = 16  # Batch size
-NUM_EPOCHS = 10  # number of epochs
+NUM_EPOCHS = 20  # number of epochs
 NUM_DISPLAYED_IMAGES = 10  # number of displayed images
 NUM_LOAD_WORKERS = 2  # Number of workers for DataLoader (Multiple workers not work in original dataset)
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
-DATA_SAVE_ROOT = '/scripts/examples/object_detection/datasets'  # Directory for Saved dataset
+DATA_SAVE_ROOT = '/scripts/datasets/object_detection'  # Directory for Saved dataset
 RESULTS_SAVE_ROOT = '/scripts/examples/object_detection/results'
-PARAMS_SAVE_ROOT = '/scripts/examples/object_detection/params'  # Directory for Saved parameters
-MODEL_YAML_URL = '/scripts/examples/object_detection/configs/yolov8.yaml'  # YOLOv8 Model yaml file (Download from https://github.com/ultralytics/ultralytics/tree/main/ultralytics/cfg/models/v8)
+PARAMS_SAVE_ROOT = '/scripts/params/object_detection'  # Directory for Saved parameters
 DATA_YAML_URL = 'https://raw.githubusercontent.com/ultralytics/yolov5/master/data/coco128.yaml'  # coco128 data with YOLO format. The train data and the val data are the same.
-PRETRAINED_WEIGHT = 'yolov8n.pt'  # Pretrained weight for YOLOv8 (Select from https://github.com/ultralytics/ultralytics#models)
+TRAIN_SCRIPT_PATH = '/repos/yolov5/train.py'  # Training script (Clone from https://github.com/ultralytics/yolov5)
+PRETRAINED_WEIGHT = '/scripts/pretrained_weights/object_detection/yolov5m.pt'  # Pretrained weight for YOLOv5 (Download from https://github.com/ultralytics/yolov5#pretrained-checkpoints)
 
 # Confirm GPU availability
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -40,7 +40,7 @@ if DEVICE == 'cpu':
 # Set random seed
 torch.manual_seed(SEED)
 
-###### 1. Create dataset & Preprocessing (The same as YOLOv5) ######
+###### 1. Create dataset & Preprocessing ######
 # Download dataset yaml file
 res = requests.get(DATA_YAML_URL, allow_redirects=True)
 yaml_path = f'{DATA_SAVE_ROOT}/{DATA_YAML_URL.split("/")[-1]}'
@@ -56,7 +56,6 @@ data_dir = os.path.splitext(zip_path)[0]
 # Unzip dataset
 with ZipFile(zip_path, 'r') as z:
     z.extractall(path=DATA_SAVE_ROOT)
-
 
 # Define display loader
 display_transform = transforms.Compose([
@@ -92,35 +91,35 @@ val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_wo
 ###### 3. Define Criterion & Optimizer ######
 ###### 4. Training ######
 # Note: the format of the training dataset should be YOLO format
-# https://docs.ultralytics.com/modes/train/
 start = time.time()  # For elapsed time
-result_dir = f'{RESULTS_SAVE_ROOT}/yolov8/{datetime.now().strftime("%Y%m%d%H%M%S")}'
-#model = YOLO(MODEL_YAML_URL).load(PRETRAINED_WEIGHT)
-# Train
-model = YOLO(PRETRAINED_WEIGHT)
-model.train(data="coco128.yaml", epochs=NUM_EPOCHS, batch=BATCH_SIZE, seed=SEED, project=result_dir)  # train the model
-metrics = model.val()  # evaluate model performance on the validation set
+# Train (Options: https://github.com/ultralytics/yolov5/blob/master/train.py#L442)
+train_command = f'python3 {TRAIN_SCRIPT_PATH} --data {yaml_path} --epochs {NUM_EPOCHS} --weights {PRETRAINED_WEIGHT} --batch-size {BATCH_SIZE} --seed {SEED} --project {RESULTS_SAVE_ROOT}/yolov5'
+subprocess.run(train_command, shell=True)
 print(f'Training complete, elapsed_time={time.time() - start}')
 # Save the weights
-os.makedirs(f'{PARAMS_SAVE_ROOT}/yolov8', exist_ok=True)
+result_dir = f'{RESULTS_SAVE_ROOT}/yolov5/{sorted(os.listdir(f"{RESULTS_SAVE_ROOT}/yolov5"))[-1]}'
+os.makedirs(f'{PARAMS_SAVE_ROOT}/yolov5', exist_ok=True)
 model_weight_name = f'{os.path.splitext(os.path.basename(DATA_YAML_URL))[0]}_{os.path.splitext(os.path.basename(PRETRAINED_WEIGHT))[0]}.pt'
-shutil.copy(f'{result_dir}/train/weights/best.pt', f'{PARAMS_SAVE_ROOT}/yolov8/{model_weight_name}')
+shutil.copy(f'{result_dir}/weights/best.pt', f'{PARAMS_SAVE_ROOT}/yolov5/{model_weight_name}')
+
+###### 5. Model evaluation and visualization ######
+
 
 ###### Inference in the first mini-batch ######
 # Load a model with the trained weight
-model_trained = YOLO(f'{PARAMS_SAVE_ROOT}/yolov8/{model_weight_name}')
-# Load the first mini-batch
+model_trained = torch.hub.load('ultralytics/yolov5', 'custom', path=f'{PARAMS_SAVE_ROOT}/yolov5/{model_weight_name}')
+# Send the model to GPU
+model_trained.to(device)
 val_iter = iter(val_loader)
-imgs, targets = next(val_iter)
+imgs, targets = next(val_iter)  # Load the first batch
 # Inference
 image_fps = [target['image_path'] for target in targets]  # Get the image pathes
 results = model_trained(image_fps)
-
 # Show Results
-results[0].show()
+results.show()
 get_ipython().magic('matplotlib inline')  # Matplotlib inline should be enabled to show plots after commiting YOLO inference
 # Convert the Results to Torchvision object detection prediction format
-predictions = convert_yolov8_hub_result(results)
+predictions = convert_yolov5_hub_result(results)
 # Class names dict with background
 idx_to_class_bg = {k: v for k, v in idx_to_class.items()}
 idx_to_class_bg[-1] = 'background'
@@ -135,7 +134,7 @@ start = time.time()  # For elapsed time
 for i, (imgs, targets) in enumerate(val_loader):
     image_fps = [target['image_path'] for target in targets]
     results = model_trained(image_fps)
-    predictions = convert_yolov8_hub_result(results)
+    predictions = convert_yolov5_hub_result(results)
     # Store the result
     targets_list.extend(targets)
     predictions_list.extend(predictions)

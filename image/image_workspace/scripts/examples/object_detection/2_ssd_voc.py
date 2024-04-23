@@ -22,8 +22,8 @@ NUM_EPOCHS = 3  # number of epochs
 NUM_DISPLAYED_IMAGES = 10  # number of displayed images
 NUM_LOAD_WORKERS = 2  # Number of workers for DataLoader (Multiple workers not work in original dataset)
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
-DATA_SAVE_ROOT = '/scripts/examples/object_detection/datasets'  # Directory for Saved dataset
-PARAMS_SAVE_ROOT = '/scripts/examples/object_detection/params'  # Directory for Saved parameters
+DATA_SAVE_ROOT = '/scripts/datasets/object_detection'  # Directory for Saved dataset
+PARAMS_SAVE_ROOT = '/scripts/params/object_detection'  # Directory for Saved parameters
 FREEZE_PRETRAINED = True  # If True, Freeze pretrained parameters (Transfer learning)
 CLASS_TO_IDX = {  # https://github.com/matlab-deep-learning/Object-Detection-Using-Pretrained-YOLO-v2/blob/main/+helper/pascal-voc-classes.txt
     'background': 0,

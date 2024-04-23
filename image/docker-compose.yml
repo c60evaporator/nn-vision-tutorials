@@ -1,0 +1,35 @@
+version: '3'
+services:
+  # Container for evaluating and selecting models
+  image_workspace:
+    container_name: ${IMAGE_HOST}
+    image: pytorch_image # Specify the image name
+    build:
+      context: $PWD/image/image_workspace
+      shm_size: '16gb'  # Increase shared memory size for NN Training
+      dockerfile: Dockerfile
+      args:
+        - USRPASSWD=${IMAGE_USRPASSWD}
+    environment:
+      - PYTHONPATH=/repos/YOLOX:$PYTHONPATH  # YOLOX and DETR Installation folder (Not necessary. Only for autocomplete)
+    volumes:
+      # Share the volumes between external folder and internal container
+      - $PWD/image/image_workspace/scripts:/scripts  # Example scripts
+      - $PWD/torch_extend:/scripts/torch_extend  # torch_extend
+      - $PWD/datasets:/scripts/datasets  # Datasets
+      - $PWD/pretrained_weights:/scripts/pretrained_weights  # Pretrained weight
+      - $PWD/params:/scripts/params  # Trained parameters
+    ports:
+      # Expose a port for external access
+      - 80:6006  # Tensorboard
+    # -i option
+    stdin_open: true
+    # -t option
+    tty: true
+    # gpu support
+    runtime: nvidia
+    # Increase shared memory size for NN Training (https://github.com/pytorch/pytorch/issues/5040)
+    shm_size: '16gb'
+    # Startup command
+    command:
+      bash
