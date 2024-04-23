@@ -29,7 +29,7 @@ DATA_YAML_URL = 'https://raw.githubusercontent.com/ultralytics/yolov5/master/dat
 YOLOX_ROOT = '/repos/YOLOX'  # YOLOX installed path (Clone from https://github.com/Megvii-BaseDetection/YOLOX)
 EXP_SCRIPT_PATH = '/scripts/examples/object_detection/configs/yolox_exp_train.py'  # Exp file path (https://github.com/Megvii-BaseDetection/YOLOX/blob/main/docs/train_custom_data.md#2-create-your-exp-file-to-control-everything)
 TRAIN_SCRIPT_PATH = 'tools/train.py'  # Training script path (relative path from YOLOX_ROOT)
-PRETRAINED_WEIGHT = 'pretrained_weights/yolox_s.pth'  # Pretrained weight for YOLOX (Download from https://github.com/Megvii-BaseDetection/YOLOX/tree/main?tab=readme-ov-file#benchmark)
+PRETRAINED_WEIGHT = '/scripts/pretrained_weights/object_detection/yolox_s.pth'  # Pretrained weight for YOLOX (Download from https://github.com/Megvii-BaseDetection/YOLOX/tree/main?tab=readme-ov-file#benchmark)
 
 # Confirm GPU availability
 device = 'cuda' if torch.cuda.is_available() else 'cpu'

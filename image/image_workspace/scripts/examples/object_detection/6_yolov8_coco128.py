@@ -56,7 +56,10 @@ data_dir = os.path.splitext(zip_path)[0]
 # Unzip dataset
 with ZipFile(zip_path, 'r') as z:
     z.extractall(path=DATA_SAVE_ROOT)
-
+# Update the root directory in the yaml file
+with open(yaml_path, 'w') as file:
+    dataset_yml['path'] = f'{DATA_SAVE_ROOT}/coco128'
+    yaml.dump(dataset_yml, file)
 
 # Define display loader
 display_transform = transforms.Compose([
@@ -98,7 +101,7 @@ result_dir = f'{RESULTS_SAVE_ROOT}/yolov8/{datetime.now().strftime("%Y%m%d%H%M%S
 #model = YOLO(MODEL_YAML_URL).load(PRETRAINED_WEIGHT)
 # Train
 model = YOLO(PRETRAINED_WEIGHT)
-model.train(data="coco128.yaml", epochs=NUM_EPOCHS, batch=BATCH_SIZE, seed=SEED, project=result_dir)  # train the model
+model.train(data=yaml_path, epochs=NUM_EPOCHS, batch=BATCH_SIZE, seed=SEED, project=result_dir)  # train the model
 metrics = model.val()  # evaluate model performance on the validation set
 print(f'Training complete, elapsed_time={time.time() - start}')
 # Save the weights

@@ -12,7 +12,7 @@ TEST_SIZE = 0.1
 BATCH_SIZE = 32
 NUM_EPOCHS = 80  # number of epochs
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
-PARAMS_SAVE_ROOT = '/scripts/params/cnn'  # Directory for Saved parameters
+PARAMS_SAVE_ROOT = '/scripts/params/classification'  # Directory for Saved parameters
 SEQ_LENGTH = 40
 
 # Confirm GPU availability

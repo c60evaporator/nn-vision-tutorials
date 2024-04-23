@@ -15,8 +15,8 @@ NUM_EPOCHS = 15  # number of epochs
 NUM_DISPLAYED_IMAGES = 10  # number of displayed images
 NUM_LOAD_WORKERS = 2  # Number of workers for DataLoader
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
-DATA_SAVE_ROOT = '/scripts/datasets/cnn'  # Directory for Saved dataset
-PARAMS_SAVE_ROOT = '/scripts/params/cnn'  # Directory for Saved parameters
+DATA_SAVE_ROOT = '/scripts/datasets/classification'  # Directory for Saved dataset
+PARAMS_SAVE_ROOT = '/scripts/params/classification'  # Directory for Saved parameters
 CLASS_NAMES = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
 # Confirm GPU availability

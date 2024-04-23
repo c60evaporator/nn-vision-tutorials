@@ -12,7 +12,7 @@ OUTPUT_DIR = '/scripts/examples/object_detection/results/yolox' # Training resul
 MODEL_TYPE = 'YOLOX-s'  # Please change the model name(See https://github.com/Megvii-BaseDetection/YOLOX/tree/main?tab=readme-ov-file#benchmark)
 NUM_CLASSES = 71  # Please input the number of classes
 SEED = None  # Random seed. If you specify the seed, it can slow down your training considerably. To avoid this, you should use None
-DATA_DIR = '/scripts/examples/object_detection/datasets/mini-coco128'
+DATA_DIR = '/scripts/datasets/object_detection/mini-coco128'
 TRAIN_DIR = 'train2017'  # Train directory name
 VAL_DIR = 'val2017'  # Validation directory name
 TRAIN_ANN = 'instances_train2017.json'  # Train annotation file name

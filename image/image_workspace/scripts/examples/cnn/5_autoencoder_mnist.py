@@ -16,8 +16,8 @@ NUM_DISPLAYED_IMAGES = 10  # number of displayed images
 MAX_DISPLAYED_CHANNEL = 8  # Maximum displayed channels of encoded image
 NUM_LOAD_WORKERS = 2  # Number of workers for DataLoader
 DEVICE = 'cuda'  # 'cpu' or 'cuda'
-DATA_SAVE_ROOT = '/scripts/datasets/cnn'  # Directory for Saved dataset
-PARAMS_SAVE_ROOT = '/scripts/params/cnn'  # Directory for Saved parameters
+DATA_SAVE_ROOT = '/scripts/datasets/classification'  # Directory for Saved dataset
+PARAMS_SAVE_ROOT = '/scripts/params/classification'  # Directory for Saved parameters
 
 # Confirm GPU availability
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
