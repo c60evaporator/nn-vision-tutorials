@@ -1,0 +1,17 @@
+directories:
+  dataset_dir:
+    classification: 
+      - /app/datasets/classification
+    object_detection: 
+      - /app/datasets/object_detection
+    semantic_segmentation: 
+      - /app/datasets/object_detection
+      - /app/datasets/segmentation
+  weight_dir:
+    classification: /app/params/classification
+    object_detection: /app/params/object_detection
+    semantic_segmentation: /app/params/segmentation
+  evaluation_result:
+    classification: /app/evals/classification
+    object_detection: /app/evals/object_detection
+    semantic_segmentation: /app/evals/segmentation

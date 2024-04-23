@@ -37,12 +37,23 @@ def load_seg_model(model_name, weight_path):
         raise Exception("The model name doesn't exist in TorchVision models")
     # Load TorchVision model
     if SEGMENTATION_MODELS[model_name]['format'] == 'TorchVision':
-        if SEGMENTATION_MODELS[model_name] == 'FCN':
-            model = models.segmentation.fcn_resnet50()
-        elif SEGMENTATION_MODELS[model_name] == 'DeepLabV3':
-            model = models.segmentation.deeplabv3_resnet50()
-        elif SEGMENTATION_MODELS[model_name] == 'LRASPP':
-            model = models.segmentation.lraspp_mobilenet_v3_large()
         params_load = torch.load(weight_path)
+        if model_name == 'FCN':
+            num_classes = len(params_load['classifier.4.bias'])
+            model = models.segmentation.fcn_resnet50(aux_loss=True)
+            model.aux_classifier = models.segmentation.fcn.FCNHead(1024, num_classes)
+            model.classifier = models.segmentation.fcn.FCNHead(2048, num_classes)
+        elif model_name == 'DeepLabV3':
+            num_classes = len(params_load['classifier.4.bias'])
+            model = models.segmentation.deeplabv3_resnet50()
+            model.aux_classifier = models.segmentation.fcn.FCNHead(1024, num_classes)
+            model.classifier = models.segmentation.deeplabv3.DeepLabHead(2048, num_classes)
+        elif model_name == 'LRASPP':
+            num_classes = len(params_load['classifier.high_classifier.bias'])
+            model = models.segmentation.lraspp_mobilenet_v3_large()
+            low_channels = model.classifier.low_classifier.in_channels
+            inter_channels = model.classifier.high_classifier.in_channels
+            model.classifier.low_classifier = torch.nn.Conv2d(low_channels, num_classes, 1)
+            model.classifier.high_classifier = torch.nn.Conv2d(inter_channels, num_classes, 1)
         model.load_state_dict(params_load)
-    return model
+    return model, num_classes

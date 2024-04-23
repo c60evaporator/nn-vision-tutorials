@@ -57,10 +57,10 @@ with col_model:
     selected_weight_name = st.selectbox('Select model weight', weight_names)
     selected_weight = f'{weight_dir}/{selected_weight_name}'
     # Load the Model
-    model = load_seg_model(selected_modelname, selected_weight)
-    st.write(model)
+    model, num_classes = load_seg_model(selected_modelname, selected_weight)
+    st.write(f'Loaded model={model.__class__.__name__}, num_classes={num_classes}')
 
 ###### Display data in the Dataset ######
 
 
-######  ######
+###### Batch evaluation ######

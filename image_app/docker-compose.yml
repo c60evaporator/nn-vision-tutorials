@@ -1,48 +1,24 @@
 version: '3'
 services:
-  # Container for evaluating and selecting models
-  image_workspace:
-    container_name: ${IMAGE_HOST}
-    image: pytorch_image # Specify the image name
-    build:
-      context: $PWD
-      shm_size: '16gb'  # Increase shared memory size for NN Training
-      dockerfile: Dockerfile
-      args:
-        - USRPASSWD=${IMAGE_USRPASSWD}
-    environment:
-      - PYTHONPATH=/repos/YOLOX:$PYTHONPATH  # YOLOX and DETR Installation folder (Not necessary. Only for autocomplete)
-    volumes:
-      # Share the volumes between external folder and internal container
-      - $PWD/scripts:/scripts  # Scripts
-    ports:
-      # Expose a port for external access
-      - 80:6006  # Tensorboard
-    # -i option
-    stdin_open: true
-    # -t option
-    tty: true
-    # gpu support
-    runtime: nvidia
-    # Increase shared memory size for NN Training (https://github.com/pytorch/pytorch/issues/5040)
-    shm_size: '16gb'
-    # Startup command
-    command:
-      bash
   # Container for a web app showing annotation data and inference result
-  image_app:
-    container_name: image_app
-    image: streamlit_pytorch # Docker image
+  pytorch_app:
+    container_name: pytorch_app
+    image: streamlit_pytorch:1.0 # Docker image
     build:
-      context: $PWD/image_app
+      context: $PWD/image_app/pytorch_app
+      shm_size: '16gb'  # Increase shared memory size for NN Training
       dockerfile: Dockerfile
     ports:
       # Expose port 8080 for the API (Port 8501 in Docker container)
       - 8080:8501
     volumes:
-      # Mount the /app folder
-      - $PWD/image_app/app:/app
-      # Mount the folder that includes models and data
-      - $PWD/image/scripts/examples:/data
-      # Mount the folder that includes utility scripts
-      - $PWD/image/scripts/torch_extend:/app/torch_extend
+      # Share the volumes between external folder and internal container
+      - $PWD/image_app/pytorch_app/app:/app  # main app
+      - $PWD/torch_extend:/app/torch_extend  # torch_extend
+      - $PWD/datasets:/app/datasets  # Datasets
+      - $PWD/pretrained_weights:/app/pretrained_weights  # Pretrained weight
+      - $PWD/params:/app/params  # Trained parameters
+    # gpu support
+    runtime: nvidia
+    # Increase shared memory size for NN Training (https://github.com/pytorch/pytorch/issues/5040)
+    shm_size: '16gb'

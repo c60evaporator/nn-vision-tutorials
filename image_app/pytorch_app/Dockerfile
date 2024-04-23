@@ -1,4 +1,4 @@
-FROM pytorch_image:latest
+FROM pytorch_workspace:1.0
 
 # Expose the port for Streamlit
 EXPOSE 8501

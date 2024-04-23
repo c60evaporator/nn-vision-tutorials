@@ -2,14 +2,12 @@ version: '3'
 services:
   # Container for evaluating and selecting models
   image_workspace:
-    container_name: ${IMAGE_HOST}
-    image: pytorch_image # Specify the image name
+    container_name: image_workspace
+    image: pytorch_workspace:1.0 # Specify the image name
     build:
       context: $PWD/image/image_workspace
       shm_size: '16gb'  # Increase shared memory size for NN Training
       dockerfile: Dockerfile
-      args:
-        - USRPASSWD=${IMAGE_USRPASSWD}
     environment:
       - PYTHONPATH=/repos/YOLOX:$PYTHONPATH  # YOLOX and DETR Installation folder (Not necessary. Only for autocomplete)
     volumes:
