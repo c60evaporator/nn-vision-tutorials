@@ -62,34 +62,25 @@ with open(yaml_path, 'w') as file:
     yaml.dump(dataset_yml, file)
 
 # Define display loader
-display_transform = transforms.Compose([
+val_transform = transforms.Compose([
     transforms.ToTensor()  # Convert from range [0, 255] to a torch.FloatTensor in the range [0.0, 1.0]
 ])
 def collate_fn(batch):
     return tuple(zip(*batch))
-display_dataset = YoloDetectionTV(root = f'{DATA_SAVE_ROOT}/coco128/images/train2017',
+val_dataset = YoloDetectionTV(root = f'{DATA_SAVE_ROOT}/coco128/images/train2017',
                                   ann_dir = f'{DATA_SAVE_ROOT}/coco128/labels/train2017',
-                                  transform=display_transform)
-display_loader = DataLoader(display_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS, collate_fn=collate_fn)
+                                  transform=val_transform)
+val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS, collate_fn=collate_fn)
 # Define class names
 idx_to_class = dataset_yml['names']
 # Display images in the first mini-batch
-display_iter = iter(display_loader)
+display_iter = iter(val_loader)
 imgs, targets = next(display_iter)
 for i, (img, target) in enumerate(zip(imgs, targets)):
     img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]
     boxes, labels = target['boxes'], target['labels']
     show_bounding_boxes(img, boxes, labels=labels, idx_to_class=idx_to_class)
     plt.show()
-
-# Load validation dataset
-val_transform = transforms.Compose([
-    transforms.ToTensor()  # Convert from range [0, 255] to a torch.FloatTensor in the range [0.0, 1.0]
-])
-val_dataset = YoloDetectionTV(root = f'{DATA_SAVE_ROOT}/coco128/images/train2017',
-                              ann_dir = f'{DATA_SAVE_ROOT}/coco128/labels/train2017',
-                              transform=val_transform)
-val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS, collate_fn=collate_fn)
 
 ###### 2. Define Model ######
 ###### 3. Define Criterion & Optimizer ######

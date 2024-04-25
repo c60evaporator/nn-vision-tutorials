@@ -16,6 +16,7 @@ import pandas as pd
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from torch_extend.segmentation.display import show_segmentations, show_predicted_segmentation_minibatch
 from torch_extend.segmentation.metrics import segmentation_ious_torchvison
+from torch_extend.segmentation.dataset import VOCSegmentationTV
 
 SEED = 42
 BATCH_SIZE = 8  # Batch size
@@ -69,7 +70,6 @@ def collate_fn(batch):  # collate_fn is needed if the sizes of resized images ar
     return tuple(zip(*batch))
 # Recommended resize_size=520 but other size is available (https://pytorch.org/vision/main/models/generated/torchvision.models.segmentation.fcn_resnet50.html)
 transform = transforms.Compose([
-    transforms.Resize((224, 224)),  # Resize the image to 224px x 224px
     transforms.ToTensor(),  # Convert from range [0, 255] to a torch.FloatTensor in the range [0.0, 1.0]
     transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)  # Normalization (mean and std of the imagenet dataset for normalizing)
 ])
@@ -78,7 +78,6 @@ def replace_tensor_value_(tensor, a, border_class):
     tensor[tensor == a] = border_class
     return tensor
 target_transform = transforms.Compose([
-    transforms.Resize((224, 224), interpolation=InterpolationMode.NEAREST),  # Resize the image to 224px x 224px
     transforms.PILToTensor(),  # Convert from PIL Image to a torch.FloatTensor in the range [0.0, 1.0]
     transforms.Lambda(lambda x: replace_tensor_value_(x.squeeze(0).long(), 255, len(CLASS_TO_IDX)))  # Replace the border to the border class ID
 ])
@@ -89,9 +88,10 @@ denormalize_transform = transforms.Compose([
 ])
 # Define preprocessing for target
 # Load train dataset from image folder
-train_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
+train_dataset = VOCSegmentationTV(root = DATA_SAVE_ROOT, year='2012',
                                 image_set='train', download=True,
-                                transform = transform, target_transform=target_transform)
+                                transform = transform, target_transform=target_transform,
+                                random_crop = (112, 112))
 # Define class names
 idx_to_class = {v: k for k, v in CLASS_TO_IDX.items()}
 num_classes = len(idx_to_class) + 1  # Classification classes + 1 (border)
@@ -106,9 +106,10 @@ for i, (img, target) in enumerate(zip(imgs, targets)):
     img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]
     show_segmentations(img, target, idx_to_class, bg_idx=0, border_idx=len(CLASS_TO_IDX))
 # Load validation dataset
-val_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
+val_dataset = VOCSegmentationTV(root = DATA_SAVE_ROOT, year='2012',
                               image_set='val', download=True,
-                              transform = transform, target_transform=target_transform)
+                              transform = transform, target_transform=target_transform,
+                              random_crop = (112, 112))
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
                         collate_fn=None if SAME_IMG_SIZE else collate_fn)
 

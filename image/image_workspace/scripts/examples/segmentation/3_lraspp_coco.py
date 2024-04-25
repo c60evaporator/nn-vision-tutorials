@@ -56,6 +56,11 @@ target_transform = transforms.Compose([
     transforms.PILToTensor(),  # Convert from PIL Image to a torch.FloatTensor in the range [0.0, 1.0]
     transforms.Lambda(lambda x: x.squeeze(0).long())  # Squeeze the target
 ])
+# Reverse normalization transform for showing the image
+denormalize_transform = transforms.Compose([
+    transforms.Normalize(mean=[-mean/std for mean, std in zip(IMAGENET_MEAN, IMAGENET_STD)],
+                         std=[1/std for std in IMAGENET_STD])
+])
 # Define preprocessing for target
 # Load train dataset from image folder
 train_dataset = CocoSegmentationTV(root = f'{DATA_SAVE_ROOT}/COCO/val2017',
@@ -78,15 +83,10 @@ num_classes = len(idx_to_class)
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
                           collate_fn=None if SAME_IMG_SIZE else collate_fn)
 # Display images in the first mini-batch
-display_dataset = CocoSegmentationTV(root = f'{DATA_SAVE_ROOT}/COCO/val2017',
-                                     annFile = f'{DATA_SAVE_ROOT}/COCO/annotations/instances_val2017.json',
-                                     transform = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()]),
-                                     target_transform=target_transform)
-display_loader = DataLoader(display_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
-                            collate_fn=None if SAME_IMG_SIZE else collate_fn)
-display_iter = iter(display_loader)
+display_iter = iter(train_loader)
 imgs, targets = next(display_iter)
 for i, (img, target) in enumerate(zip(imgs, targets)):
+    img = denormalize_transform(img)
     img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]
     show_segmentations(img, target, idx_to_class, bg_idx=0)
 # Load validation dataset
@@ -95,11 +95,6 @@ val_dataset = CocoSegmentationTV(root = f'{DATA_SAVE_ROOT}/COCO/val2017',
                                  transform = transform, target_transform=target_transform)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
                         collate_fn=None if SAME_IMG_SIZE else collate_fn)
-# Reverse transform for showing the image
-val_reverse_transform = transforms.Compose([
-    transforms.Normalize(mean=[-mean/std for mean, std in zip(IMAGENET_MEAN, IMAGENET_STD)],
-                         std=[1/std for std in IMAGENET_STD])
-])
 
 ###### 2. Define Model ######
 # Load a pretrained network (https://www.kaggle.com/code/dasmehdixtr/load-finetune-pretrained-model-in-pytorch)
@@ -281,7 +276,7 @@ else: # if the image sizes are different, inference should be conducted with one
     predictions = [model(img.unsqueeze(0)) for img in imgs_gpu]
     predictions = {'out': [pred['out'][0] for pred in predictions]}
 # Reverse normalization for getting the raw image
-imgs_display = [val_reverse_transform(img) for img in imgs]
+imgs_display = [denormalize_transform(img) for img in imgs]
 # Show the image
 show_predicted_segmentation_minibatch(imgs_display, predictions, targets, idx_to_class,
                                       bg_idx=0, plot_raw_image=True,
