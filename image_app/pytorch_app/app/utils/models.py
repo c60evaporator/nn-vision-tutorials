@@ -17,7 +17,7 @@ def list_seg_models(modelformat):
     """List up the segmentation model names based on the designated format"""
     return [k for k, v in SEGMENTATION_MODELS.items() if v['format'] == modelformat]
 
-def list_seg_weights(dir_path, model_name):
+def list_seg_weights(weight_dir, model_name):
     """List up the weights in the designated directory"""
     if model_name not in SEGMENTATION_MODELS.keys():
         raise Exception("The model name doesn't exist in TorchVision models")
@@ -25,7 +25,7 @@ def list_seg_weights(dir_path, model_name):
     extensions = ['prm', 'pt', 'pth']
     weight_paths = []
     for extension in extensions:
-        weight_paths.extend(glob.glob(f'{dir_path}/*.{extension}'))
+        weight_paths.extend(glob.glob(f'{weight_dir}/*.{extension}'))
     # Search the weight based on the model name
     pattern = SEGMENTATION_MODELS[model_name]['pattern']
     model_weights = [weight for weight in weight_paths if re.match(pattern, os.path.basename(weight))]
@@ -57,3 +57,27 @@ def load_seg_model(model_name, weight_path):
             model.classifier.high_classifier = torch.nn.Conv2d(inter_channels, num_classes, 1)
         model.load_state_dict(params_load)
     return model, num_classes
+
+
+def load_seg_default_models(weight_dir, weight_names):
+    if 'seg_models' not in st.session_state:
+        progress_bar = st.progress(0, f'Loading {len(weight_names)} models')
+        models = []
+        for i, weight_name in enumerate(weight_names):
+            for model_idx, (k, v) in enumerate(SEGMENTATION_MODELS.items()):
+                if re.match(v['pattern'], weight_name):
+                    model_name = k
+                    break
+                if model_idx == len(SEGMENTATION_MODELS) - 1:
+                    raise Exception(f"The weight {weight_name} doesn't match any model type")
+            weight_path = f'{weight_dir}/{weight_name}'
+            model, num_classes = load_seg_model(model_name, weight_path)
+            models.append({
+                'model_name': model_name,
+                'num_classes': num_classes,
+                'weight_name': weight_name,
+                'model': model
+            })
+            progress_bar.progress((i + 1)/len(weight_names), text=f'Loading models {i}/{len(weight_names)}')
+        st.session_state['seg_models'] = models
+        progress_bar.empty()

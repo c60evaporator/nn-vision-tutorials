@@ -11,7 +11,23 @@ directories:
     classification: /app/params/classification
     object_detection: /app/params/object_detection
     semantic_segmentation: /app/params/segmentation
-  evaluation_result:
-    classification: /app/evals/classification
-    object_detection: /app/evals/object_detection
-    semantic_segmentation: /app/evals/segmentation
+  database_dir: /app/db
+
+database:
+  table_name:
+    eval_result:
+      classification: classification
+      object_detection: detection
+      semantic_segmentation: segmentation
+
+models:
+  default_load_weights:
+    classification: 
+    object_detection: 
+    semantic_segmentation:
+      - vocsegmentation_fcn.prm
+      - vocsegmentation_deeplabv3.prm
+      - coco_lraspp.prm
+
+display:
+  records_per_table: 200

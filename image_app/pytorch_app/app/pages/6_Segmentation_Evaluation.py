@@ -5,7 +5,7 @@ import streamlit as st
 from st_aggrid import AgGrid, GridUpdateMode, GridOptionsBuilder
 
 import torch_extend.segmentation.metrics as metrics
-from utils.dataset import list_datasets, load_segmentation_voc
+from utils.dataset import list_datasets, get_seg_voc_dataset
 from utils.models import list_seg_models, list_seg_weights, load_seg_model
 
 class SegmentationDataFormat(Enum):
@@ -17,8 +17,8 @@ class SegmentationModelFormat(Enum):
     SMP = 'SMP'
 
 # Read the config file
-with open('./config/data_config.yml', 'r') as yml:
-    data_config = yaml.safe_load(yml)
+with open('./config/config.yml', 'r') as yml:
+    config = yaml.safe_load(yml)
 
 col_dataset, col_model = st.columns(2)
 
@@ -26,7 +26,7 @@ col_dataset, col_model = st.columns(2)
 with col_dataset:
     st.markdown('**Select the dataset**')
     # Select the dataset
-    dataset_dict = list_datasets(data_config['directories']['dataset_dir']['semantic_segmentation'])
+    dataset_dict = list_datasets(config['directories']['dataset_dir']['semantic_segmentation'])
     selected_dataset = st.selectbox('Select dataset', dataset_dict.keys())
     selected_dataset_path = dataset_dict[selected_dataset]
     # Select the format
@@ -40,9 +40,10 @@ with col_dataset:
             dataset_root = selected_dataset_path
         else:
             dataset_root = f'{selected_dataset_path}/{subfolder}'
-        load_segmentation_voc(dataset_root)
+        dataset_info = get_seg_voc_dataset(dataset_root)
+        st.write(dataset_info)
 
-###### Select the Model ######
+###### Load the Models ######
 with col_model:
     st.markdown('**Select the model**')
     # Select the model format
@@ -50,17 +51,20 @@ with col_model:
     # Select the model name
     selected_modelname = st.selectbox('Select model name', list_seg_models(selected_modelformat))
     # List up the weights
-    weight_dir = data_config['directories']['weight_dir']['semantic_segmentation']
+    weight_dir = config['directories']['weight_dir']['semantic_segmentation']
     weight_paths = list_seg_weights(weight_dir, selected_modelname)
     # Select the weight
     weight_names = [os.path.basename(weight_path) for weight_path in weight_paths]
-    selected_weight_name = st.selectbox('Select model weight', weight_names)
-    selected_weight = f'{weight_dir}/{selected_weight_name}'
-    # Load the Model
-    model, num_classes = load_seg_model(selected_modelname, selected_weight)
-    st.write(f'Loaded model={model.__class__.__name__}, num_classes={num_classes}')
+    selected_weight_name = st.selectbox('Select model weight', [None] + weight_names)
+    if selected_weight_name is not None:
+        selected_weight = f'{weight_dir}/{selected_weight_name}'
+        # Load the Model
+        model, num_classes = load_seg_model(selected_modelname, selected_weight)
+        st.write(f'Loaded model={model.__class__.__name__}, num_classes={num_classes}')
 
 ###### Display data in the Dataset ######
 
+
+###### Display evaluation history ######
 
 ###### Batch evaluation ######

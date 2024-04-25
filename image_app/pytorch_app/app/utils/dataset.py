@@ -22,7 +22,7 @@ def list_datasets(dir_path):
         ])
     return {os.path.basename(path): path for path in dataset_paths}
 
-def load_segmentation_voc(dataset_root):
+def get_seg_voc_dataset(dataset_root):
     # Check whether the necessary folders exist
     dataset_subfolders = [f for f in os.listdir(dataset_root) if os.path.isdir(os.path.join(dataset_root, f))]
     if VocFormat.Annotations.name not in dataset_subfolders:
@@ -41,15 +41,26 @@ def load_segmentation_voc(dataset_root):
         return
     # Annotation files
     ann_dir = f'{dataset_root}/{VocFormat.Annotations.name}'
-    ann_paths = glob.glob(f'{ann_dir}/*.xml')
+    #ann_paths = glob.glob(f'{ann_dir}/*.xml')
     # ImageSets files
     imgsets_segdir = f'{imgsets_dir}/Segmentation'
     imgsets_paths = glob.glob(f'{imgsets_segdir}/*.txt')
     # Image files
     image_dir = f'{dataset_root}/{VocFormat.JPEGImages.name}'
-    image_paths = glob.glob(f'{ann_dir}/*.jpg')
+    #image_paths = glob.glob(f'{ann_dir}/*.jpg')
 
     # Select the dataset type
     dataset_types = [os.path.splitext(os.path.basename(imgset_file))[0]
                     for imgset_file in imgsets_paths]
     dataset_type = st.selectbox('Select dataset type', dataset_types)
+    imgsets_file = f'{imgsets_segdir}/{dataset_type}.txt'
+
+    # Load the ImageSets file
+    with open(imgsets_file) as f:
+        lines = f.readlines()
+    # Create 
+    dataset_info = [
+        {'image': f'{image_dir}/{line}.jpg', 'annotation': f'{image_dir}/{line}.xml'}
+        for line in lines
+    ]
+    return dataset_info

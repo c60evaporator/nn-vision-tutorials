@@ -1,2 +1,6 @@
 streamlit
 streamlit-aggrid==0.3.4
+streamlit-image-comparison
+stqdm
+streamlit-plotly-events
+streamlit-img-label
