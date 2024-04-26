@@ -28,9 +28,9 @@ models:
     classification: 
     object_detection: 
     semantic_segmentation:
-      - vocsegmentation_fcn.prm
-      - vocsegmentation_deeplabv3.prm
-      - coco_lraspp.prm
+      - vocseg_fcn_resnet50.prm
+      - vocseg_deeplabv3_resnet50.prm
+      - coco_lraspp_mobilenetv3.prm
 
 display:
   records_per_table: 200

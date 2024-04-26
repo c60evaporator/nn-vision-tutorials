@@ -268,13 +268,13 @@ plt.show()
 params = model.state_dict()
 if not os.path.exists(PARAMS_SAVE_ROOT):
     os.makedirs(PARAMS_SAVE_ROOT)
-torch.save(params, f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn.prm')
+torch.save(params, f'{PARAMS_SAVE_ROOT}/vocseg_fcn_resnet50.prm')
 
 
 # %%
 ###### Inference in the first mini-batch ######
 # Reload parameters
-params_load = torch.load(f'{PARAMS_SAVE_ROOT}/vocsegmentation_fcn.prm')
+params_load = torch.load(f'{PARAMS_SAVE_ROOT}/vocseg_fcn_resnet50.prm')
 model.load_state_dict(params_load)
 # Inference
 val_iter = iter(val_loader)
