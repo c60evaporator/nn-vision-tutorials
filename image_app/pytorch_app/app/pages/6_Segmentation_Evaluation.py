@@ -57,14 +57,14 @@ with col_model:
     weight_names = [os.path.basename(weight_path) for weight_path in weight_paths]
     selected_weight_name = st.selectbox('Select model weight', [None] + weight_names)
     if selected_weight_name is not None:
-        selected_weight = f'{weight_dir}/{selected_weight_name}'
+        selected_weights = f'{weight_dir}/{selected_weight_name}'
         # Load the Model
-        model, num_classes = load_seg_model(selected_modelname, selected_weight)
+        model, num_classes = load_seg_model(selected_modelname, selected_weights)
         st.write(f'Loaded model={model.__class__.__name__}, num_classes={num_classes}')
 
-###### Display data in the Dataset ######
+        ###### Display data in the Dataset ######
+        # Read the image
 
+        ###### Display evaluation history ######
 
-###### Display evaluation history ######
-
-###### Batch evaluation ######
+        ###### Batch evaluation ######

@@ -28,7 +28,7 @@ def _create_segmentation_palette():
     palette = [list(int(ip[i:i+2],16) for i in (1, 3, 5)) for ip in palette]  # Convert hex to RGB
     return palette
 
-def _array1d_to_pil_image(array: torch.Tensor, palette: List[List[int]], bg_idx=None, border_idx=None):
+def array1d_to_pil_image(array: torch.Tensor, palette: List[List[int]], bg_idx=None, border_idx=None):
     """
     Convert 1D class image to colored PIL image
 
@@ -100,7 +100,7 @@ def show_segmentation(image, target,
     if plot_raw_image:
         ax.imshow(image.permute(1, 2, 0))
     # Display Segmentations
-    segmentation_img = _array1d_to_pil_image(target, palette, bg_idx, border_idx)
+    segmentation_img = array1d_to_pil_image(target, palette, bg_idx, border_idx)
     ax.imshow(segmentation_img, alpha=alpha)
     # Add legend
     if add_legend:

@@ -13,6 +13,9 @@ directories:
     semantic_segmentation: /app/params/segmentation
   database_dir: /app/db
 
+class_names:
+  voc: idx_to_class.yml
+
 database:
   table_name:
     eval_result:

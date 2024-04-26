@@ -6,6 +6,9 @@ import torch
 from torchvision import models
 import streamlit as st
 
+from torch_extend.segmentation.metrics import segmentation_ious_one_image
+import preprocessing.seg_preprocessing as preproessing
+
 SEGMENTATION_MODELS = {
     'FCN': {'format': 'TorchVision', 'pattern': '.*?(fcn).*'},
     'DeepLabV3': {'format': 'TorchVision', 'pattern': '.*?(deeplabv3).*'},
@@ -48,6 +51,7 @@ def load_seg_model(model_name, weight_path):
             model = models.segmentation.deeplabv3_resnet50()
             model.aux_classifier = models.segmentation.fcn.FCNHead(1024, num_classes)
             model.classifier = models.segmentation.deeplabv3.DeepLabHead(2048, num_classes)
+            model.aux_classifier = None  # Disable aux_classifier to avoid an error
         elif model_name == 'LRASPP':
             num_classes = len(params_load['classifier.high_classifier.bias'])
             model = models.segmentation.lraspp_mobilenet_v3_large()
@@ -56,6 +60,7 @@ def load_seg_model(model_name, weight_path):
             model.classifier.low_classifier = torch.nn.Conv2d(low_channels, num_classes, 1)
             model.classifier.high_classifier = torch.nn.Conv2d(inter_channels, num_classes, 1)
         model.load_state_dict(params_load)
+        model.eval()
     return model, num_classes
 
 
@@ -81,3 +86,32 @@ def load_seg_default_models(weight_dir, weight_names):
             progress_bar.progress((i + 1)/len(weight_names), text=f'Loading models {i}/{len(weight_names)}')
         st.session_state['seg_models'] = models
         progress_bar.empty()
+
+def inference(image, model):
+    img_transformed = preproessing.transform[model['model_name']](image)
+    # Inference of TorchVision model
+    if SEGMENTATION_MODELS[model['model_name']]['format'] == 'TorchVision':
+        prediction = model['model'](img_transformed.unsqueeze(0))['out']
+        predicted_labels = prediction.argmax(1).cpu().detach()
+    return predicted_labels
+
+def inference_and_score(image, model, idx_to_class, mask, border_idx):
+    # Inference
+    predicted_labels = inference(image, model)
+    # Add the border label to idx_to_class
+    idx_to_class_bd = {k: v for k, v in idx_to_class.items()}
+    if border_idx is not None:
+        idx_to_class_bd[border_idx] = 'border'
+    # Calculate the metrics
+    ious, tps, fps, fns = segmentation_ious_one_image(predicted_labels, mask, labels=list(idx_to_class_bd.keys()))
+    iou_dict = {
+        k: {
+            'label_name': v,
+            'tp': tps[i],
+            'fp': fps[i],
+            'fn': fns[i],
+            'iou': ious[i]
+        }
+        for i, (k, v) in enumerate(idx_to_class.items()) 
+    }
+    return predicted_labels, iou_dict
