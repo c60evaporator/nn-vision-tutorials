@@ -33,11 +33,11 @@ def get_target_transform(model_name, border_idx, src_border=255):
             v2.Lambda(lambda x: replace_tensor_value_(x.squeeze(0).long(), src_border, border_idx))
         ]),
         'DeepLabV3_ResNet50': v2.Compose([
-            v2.ToTensor(),
+            v2.PILToTensor(),
             v2.Lambda(lambda x: replace_tensor_value_(x.squeeze(0).long(), src_border, border_idx))
         ]),
         'LRASPP_MobileNet': v2.Compose([
-            v2.ToTensor(),
+            v2.PILToTensor(),
             v2.Lambda(lambda x: replace_tensor_value_(x.squeeze(0).long(), src_border, border_idx))
         ]),
     }

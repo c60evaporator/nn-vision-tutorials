@@ -29,18 +29,18 @@ def get_seg_voc_dataset(dataset_root, class_names_yaml):
     # Check whether the necessary folders exist
     dataset_subfolders = [f for f in os.listdir(dataset_root) if os.path.isdir(os.path.join(dataset_root, f))]
     if VocSegFormat.Annotations.value not in dataset_subfolders:
-        st.error(f'There is no "{VocSegFormat.Annotations.value}" folder in the dataset')
+        st.warning(f'There is no "{VocSegFormat.Annotations.value}" folder in the dataset')
         return None
     elif VocSegFormat.ImageSets.value not in dataset_subfolders:
-        st.error(f'There is no "{VocSegFormat.ImageSets.value}" folder in the dataset')
+        st.warning(f'There is no "{VocSegFormat.ImageSets.value}" folder in the dataset')
         return None
     elif VocSegFormat.JPEGImages.value not in dataset_subfolders:
-        st.error(f'There is no "{VocSegFormat.JPEGImages.value}" folder in the dataset')
+        st.warning(f'There is no "{VocSegFormat.JPEGImages.value}" folder in the dataset')
         return None
     imgsets_dir = f'{dataset_root}/{VocSegFormat.ImageSets.value}'
     imgsets_subfolders = [f for f in os.listdir(imgsets_dir) if os.path.isdir(os.path.join(imgsets_dir, f))]
     if 'Segmentation' not in imgsets_subfolders:
-        st.error('There is no "Segmentation" folder in the dataset')
+        st.warning('There is no "Segmentation" folder in the dataset')
         return None
     # Annotation files
     ann_dir = f'{dataset_root}/{VocSegFormat.Annotations.value}'
@@ -62,7 +62,7 @@ def get_seg_voc_dataset(dataset_root, class_names_yaml):
         lines = f.read().splitlines()
     # Load index to class dict
     if not os.path.isfile(f'/{dataset_root}/{class_names_yaml}'):
-        st.error('Please put the idx_to_class.yml file on the root folder of the dataset')
+        st.warning('Please put the idx_to_class.yml file on the root folder of the dataset')
     with open(f'/{dataset_root}/{class_names_yaml}', 'r') as yml:
         idx_to_class = yaml.safe_load(yml)['names']
     # Accumulate dataset info
