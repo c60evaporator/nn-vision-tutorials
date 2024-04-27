@@ -1,3 +1,4 @@
+sqlalchemy
 streamlit
 streamlit-aggrid==0.3.4
 streamlit-image-comparison

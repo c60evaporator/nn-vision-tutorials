@@ -1,6 +1,8 @@
 import torchvision.transforms as v2
 import torchvision.transforms.functional as F2
-from torchvision.datasets import CocoDetection, VOCSegmentation
+from torchvision.datasets import CocoDetection, VisionDataset
+import streamlit as st
+import os
 from typing import Any, Callable, List, Tuple, Optional
 from PIL import Image
 from pycocotools import mask as coco_mask
@@ -10,6 +12,8 @@ try:
     from defusedxml.ElementTree import parse as ET_parse
 except ImportError:
     from xml.etree.ElementTree import parse as ET_parse
+
+from ..detection.dataset import VODBaseTV
 
 class SegmentationOutput():
     def _get_images_targets(self):
@@ -112,39 +116,45 @@ class CocoSegmentationTV(CocoDetection, SegmentationOutput):
 
         return image, target
     
-class VOCSegmentationTV(VOCSegmentation, SegmentationOutput):
+class VOCSegmentationTV(VODBaseTV, SegmentationOutput):
     """`Pascal VOC <http://host.robots.ox.ac.uk/pascal/VOC/>`_ Segmentation Dataset.
 
-    Args:
-        root (string): Root directory of the VOC Dataset.
-        year (string, optional): The dataset year, supports years ``"2007"`` to ``"2012"``.
-        image_set (string, optional): Select the image_set to use, ``"train"``, ``"trainval"`` or ``"val"``. If
-            ``year=="2007"``, can also be ``"test"``.
-        download (bool, optional): If true, downloads the dataset from the internet and
-            puts it in root directory. If dataset is already downloaded, it is not
-            downloaded again.
-        transform (callable, optional): A function/transform that  takes in an PIL image
-            and returns a transformed version. E.g, ``transforms.RandomCrop``
-        target_transform (callable, optional): A function/transform that takes in the
-            target and transforms it.
-        transforms (callable, optional): A function/transform that takes input sample and its target as entry
-            and returns a transformed version.
-        random_crop : (tuple, optional)
-            If not None, `torchvision.transforms.RandomCrop` with the specified size is applied to both the PIL image and the target. This transform is applied in advance of `transform` and `target_transform`. (https://stackoverflow.com/questions/58215056/how-to-use-torchvision-transforms-for-data-augmentation-of-segmentation-task-in)
+    Parameters
+    ----------
+    root : str
+        Root directory of the VOC Dataset.
+    image_set : str
+        Select the image_set to use, ``"train"``, ``"trainval"`` or ``"val"``.
+    transform : callable, optional
+        A function/transform that  takes in an PIL image and returns a transformed version. E.g, ``transforms.PILToTensor``
+    target_transform : callable, optional
+        A function/transform that takes in the target and transforms it.
+    transforms : callable, optional
+        A function/transform that takes input sample and its target as entry and returns a transformed version.
+    random_crop : tuple, optional
+        If not None, `torchvision.transforms.RandomCrop` with the specified size is applied to both the PIL image and the target. This transform is applied in advance of `transform` and `target_transform`. (https://stackoverflow.com/questions/58215056/how-to-use-torchvision-transforms-for-data-augmentation-of-segmentation-task-in)
     """
+    _SPLITS_DIR = "Segmentation"
+    _TARGET_DIR = "SegmentationClass"
+    _TARGET_FILE_EXT = ".png"
+
     def __init__(
         self,
         root: str,
-        year: str = "2012",
         image_set: str = "train",
-        download: bool = False,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         transforms: Optional[Callable] = None,
         random_crop: Optional[Tuple] = None,
     ):
-        super().__init__(root, year, image_set, download, transform, target_transform, transforms)
+        super().__init__(root, image_set, transform, target_transform, transforms)
+
+        # Additional
         self.random_crop = random_crop
+
+    @property
+    def masks(self) -> List[str]:
+        return self.targets
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         image = Image.open(self.images[index]).convert("RGB")

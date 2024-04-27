@@ -3,6 +3,7 @@ __pycache__
 *.pt
 *.pth
 *.jpg
+*.db
 datasets/
 params/
 pretrained_weights/

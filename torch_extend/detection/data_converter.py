@@ -7,7 +7,7 @@ from .dataset import YoloDetectionTV, DetectionOutput
 
 def _output_images_from_dataset(dataset, out_dir, copy_metadata=False):
     os.makedirs(out_dir, exist_ok=True)
-    for image_fp in dataset.image_fps:
+    for image_fp in dataset.images:
         if copy_metadata:
             shutil.copy2(image_fp, out_dir)
         else:

@@ -10,9 +10,13 @@ from PIL import Image
 
 from torch_extend.segmentation.display import array1d_to_pil_image
 
-from utils.segmentation.dataset import list_datasets, get_seg_voc_dataset, convert_seg_voc_mask
+from utils.segmentation.dataset import list_datasets, get_seg_voc_dataset, convert_seg_voc_mask, read_image_metadata
 from utils.segmentation.models import load_seg_default_models, inference_and_score
 from utils.segmentation.display import show_seg_legend, create_overlayed_annotation, get_segmentation_palette
+from sql.database import get_db
+import sql.crud as crud
+
+IMAGE_COLUMN_ORDER = ['']
 
 class SegmentationDataFormat(Enum):
     VOC = 'VOC'
@@ -22,15 +26,17 @@ class SegmentationModelFormat(Enum):
     TorchVision = 'TorchVision'
     SMP = 'SMP'
 
+###### Initialization ######
 # Read the config file
 with open('./config/config.yml', 'r') as yml:
     config = yaml.safe_load(yml)
-
-col_dataset, col_model = st.columns([1, 2])
-
-###### Load default Models ######
+# Load the database operator
+get_db(config['directories']['database_dir'])
+# Load default Models
 load_seg_default_models(weight_dir=config['directories']['weight_dir']['semantic_segmentation'],
                         weight_names=config['models']['default_load_weights']['semantic_segmentation'])
+
+col_dataset, col_model = st.columns([1, 3])
 
 ###### Select the Dataset ######
 dataset_info = None
@@ -51,36 +57,56 @@ with col_dataset:
             dataset_root = selected_dataset_path
         else:
             dataset_root = f'{selected_dataset_path}/{subfolder}'
-        # Get the class names
-        class_names_yml = f'/{dataset_root}/{config["class_names"]["voc"]}'
-        if not os.path.isfile(class_names_yml):
-            st.error('Please put the idx_to_class.yml file on the root folder of the dataset')
-        else:
-            with open(f'/{dataset_root}/{config["class_names"]["voc"]}', 'r') as yml:
-                idx_to_class = yaml.safe_load(yml)['names']
-            bg_idx = 0
-            border_idx=len(idx_to_class)
-            # Load the dataset information
-            dataset_info = get_seg_voc_dataset(dataset_root)
+        # Load the dataset information
+        dataset_info = get_seg_voc_dataset(dataset_root, config["class_names"]["voc"])
 
-###### Load the Models ######
-with col_model:
-    st.markdown('**Models**')
-    model_info = [{k: v for k, v in model.items() if k != 'model'} for model in st.session_state['seg_models']]
-    st.dataframe(pd.DataFrame(model_info))
 
-###### Get the evaluation history ######
-eval_history = []
-
-###### Display image list in the Dataset ######
 if dataset_info is not None:
-    df_dataset = pd.DataFrame(dataset_info)
+    ###### Show the models and evaluation results ######
+    with col_model:
+        # Get the model info
+        st.markdown('**Models**')
+        model_info = [{k: v for k, v in model.items() if k != 'model'} for model in st.session_state['seg_models']]
+        df_models = pd.DataFrame(model_info)
+        # Get the evaluation results
+        df_history = []
+        for i, row in df_models.iterrows():
+            df_history_model = crud.get_evaluations(st.session_state['db'], model_name=row['model_name'], convert_df=True)
+            if len(df_history_model) > 0:
+                latest_idx = pd.to_datetime(df_history_model['created_at']).idxmax()
+                df_history_model = df_history_model[['model_name', 'area_iou', 'mean_iou', 'evaluation_id']].iloc[latest_idx].to_dict()
+                df_history.append(df_history_model)
+        df_history = pd.DataFrame(df_history)
+        # Merge and display the model scores
+        df_models = pd.merge(df_models, df_history, on='model_name', how='left')
+        st.dataframe(df_models[['model_name', 'area_iou', 'mean_iou', 'num_classes', 'weight_name']])
+        # Sort by the metrics
+        sort_model = st.selectbox('Model metrics sort', [None] + df_history['model_name'].tolist())
+    
+
+    ###### Display image list in the Dataset ######
+    # Index to class dict
+    idx_to_class = dataset_info['idx_to_class']
+    bg_idx = 0
+    border_idx=len(idx_to_class)
+    # Create dataframe of the image list
+    df_dataset = pd.DataFrame(dataset_info['images'])
     n_images = len(df_dataset)
     # Merge the evaluation history
-    if len(eval_history) > 0:
-        # Sort by the metrics
-        sort_model = st.selectbox('Sort by', SegmentationDataFormat.__members__.keys())
-        df_dataset = df_dataset.sort_values(sort_model, ascending=True)
+    df_dataset_ordered = df_dataset.copy()
+    evaluated_models = {}
+    for i, row in df_models.iterrows():
+        if not row[['mean_iou', 'area_iou']].isnull().all():
+            df_image_evaluation = crud.get_image_evaluations(st.session_state['db'], evaluation_id=row['evaluation_id'], convert_df=True)
+            df_image_evaluation['name'] = df_image_evaluation['img_path'].map(lambda x: os.path.splitext(os.path.basename(x))[0])
+            df_image_evaluation = df_image_evaluation[['name', 'mean_iou', 'area_iou']]
+            df_image_evaluation = df_image_evaluation.rename(columns = {'mean_iou': f'{i}_mean_iou', 'area_iou':f'{i}_area_iou'}) 
+            df_dataset_ordered = pd.merge(df_dataset_ordered, df_image_evaluation, on='name', how='left')
+            evaluated_models[row['model_name']] = i
+    # Sort by the metrics
+    if sort_model is not None:
+        sort_model_id = evaluated_models[sort_model]
+        df_dataset_ordered = df_dataset_ordered.sort_values(f'{sort_model_id}_mean_iou', ascending=True)
     # Divide the data based on a radio button
     col_radio, col_radioinfo = st.columns([4, 1])
     with col_radio:
@@ -89,12 +115,16 @@ if dataset_info is not None:
         table_idx = st.radio('Page', tuple(range(1, n_tables + 1)), horizontal=True)
         i_start = records_per_table * (table_idx - 1)
         i_end = records_per_table * table_idx
-        df_dataset_display = df_dataset[i_start:i_end]
+        df_dataset_display = df_dataset_ordered[i_start:i_end]
     with col_radioinfo:
         st.text('\n\n')
         st.text(f'{i_start + 1}-{i_end}\nin {n_images} images')
+    # Calculate the image size
+    df_dataset_display[['width', 'height', 'channel']] = df_dataset_display['image'].map(
+        lambda x: read_image_metadata(x)).to_list()
+    df_dataset_display = df_dataset_display[[col for col in df_dataset_display.columns if col != 'image'] + ['image']]
+    df_dataset_display = df_dataset_display[[col for col in df_dataset_display.columns if col != 'annotation'] + ['annotation']]
     # Display interactive table by st_aggrid
-    col_image_list, col_image_list = st.columns([4, 1])
     gd = GridOptionsBuilder.from_dataframe(df_dataset_display)
     gd.configure_columns(df_dataset_display, width=120)
     gd.configure_selection(selection_mode='single', use_checkbox=False)

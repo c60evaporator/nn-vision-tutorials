@@ -30,10 +30,10 @@ def segmentation_ious_one_image(labels_pred: Tensor, target: Tensor, labels: Lis
     tps = np.diag(confmat)
     gts = np.sum(confmat, axis=1)  # Ground 
     preds = np.sum(confmat, axis=0)
-    union = gts + preds - tps
+    unions = gts + preds - tps
     fps = preds - tps
     fns = gts - tps
-    ious = np.divide(tps, union.astype(np.float32), out=np.full((len(labels),), np.nan), where=(union!=0))
+    ious = np.divide(tps, unions.astype(np.float32), out=np.full((len(labels),), np.nan), where=(unions!=0))
     return ious, tps, fps, fns
 
 def segmentation_ious_batch(predictions: Dict[Literal['out', 'aux'], Tensor],

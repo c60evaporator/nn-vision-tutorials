@@ -88,7 +88,7 @@ def load_seg_default_models(weight_dir, weight_names):
         progress_bar.empty()
 
 def inference(image, model):
-    img_transformed = preproessing.transform[model['model_name']](image)
+    img_transformed = preproessing.get_transform(model['model_name'])(image)
     # Inference of TorchVision model
     if SEGMENTATION_MODELS[model['model_name']]['format'] == 'TorchVision':
         prediction = model['model'](img_transformed.unsqueeze(0))['out']

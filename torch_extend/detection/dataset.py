@@ -42,7 +42,7 @@ class DetectionOutput():
                 'flickr_url': '',
                 'id': i_img,
             }
-            for i_img, (image, image_fp) in enumerate(zip(images, self.image_fps))
+            for i_img, (image, image_fp) in enumerate(zip(images, self.images))
         ]
         # Create "annotations" field in the annotation file
         ann_annotations = []
@@ -155,15 +155,15 @@ class YoloDetectionTV(VisionDataset, DetectionOutput):
         super().__init__(root, transforms, transform, target_transform)
         self.class_to_idx = class_to_idx
         self.ids = os.listdir(root)
-        self.image_fps = [os.path.join(root, image_id) for image_id in self.ids]
-        self.ann_fps = [os.path.join(ann_dir, image_id.replace('png', 'txt').replace('jpg', 'txt')) for image_id in self.ids]
-        assert len(self.image_fps) == len(self.ann_fps)
+        self.images = [os.path.join(root, image_id) for image_id in self.ids]
+        self.targets = [os.path.join(ann_dir, image_id.replace('png', 'txt').replace('jpg', 'txt')) for image_id in self.ids]
+        assert len(self.images) == len(self.targets)
     
     def _load_image(self, index: int) -> Image.Image:
-        return Image.open(self.image_fps[index]).convert("RGB")
+        return Image.open(self.images[index]).convert("RGB")
 
     def _load_target(self, index: int, w: int, h: int) -> List[Any]:
-        ann_path = self.ann_fps[index]
+        ann_path = self.targets[index]
         # If annotation text file doesn't exist
         if not os.path.exists(ann_path):
             boxes = torch.zeros(size=(0, 4))
@@ -180,7 +180,7 @@ class YoloDetectionTV(VisionDataset, DetectionOutput):
             rect_list = [[float(cell.replace('\n','')) for cell in rect] for rect in rect_list]
             boxes = [convert_bbox_centerxywh_to_xyxy(*rect) for rect in rect_list]  # Convert [x_c, y_c, w, h] to [xmin, ymin, xmax, ymax]
             boxes = torch.tensor(boxes) * torch.tensor([w, h, w, h], dtype=float)  # Convert normalized coordinates to raw coordinates
-        target = {'boxes': boxes, 'labels': labels, 'image_path': self.image_fps[index]}
+        target = {'boxes': boxes, 'labels': labels, 'image_path': self.images[index]}
         return target
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
@@ -195,19 +195,53 @@ class YoloDetectionTV(VisionDataset, DetectionOutput):
 
     def __len__(self) -> int:
         return len(self.ids)
-    
-class VOCDetectionTV(VisionDataset, DetectionOutput):
+
+class VODBaseTV(VisionDataset, DetectionOutput):
+    _SPLITS_DIR: str
+    _TARGET_DIR: str
+    _TARGET_FILE_EXT: str
+
+    def __init__(
+        self,
+        voc_root: str,
+        image_set: str = "train",
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        transforms: Optional[Callable] = None
+    ):
+        super().__init__(voc_root, transforms, transform, target_transform)
+        self.image_set = image_set
+        if not os.path.isdir(voc_root):
+            raise RuntimeError("Dataset not found or corrupted")
+        
+        splits_dir = os.path.join(voc_root, "ImageSets", self._SPLITS_DIR)
+        split_f = os.path.join(splits_dir, image_set.rstrip("\n") + ".txt")
+        with open(os.path.join(split_f)) as f:
+            file_names = [x.strip() for x in f.readlines()]
+        
+        image_dir = os.path.join(voc_root, "JPEGImages")
+        self.images = [os.path.join(image_dir, x + ".jpg") for x in file_names]
+
+        target_dir = os.path.join(voc_root, self._TARGET_DIR)
+        self.targets = [os.path.join(target_dir, x + self._TARGET_FILE_EXT) for x in file_names]
+
+        assert len(self.images) == len(self.targets)
+
+    def __len__(self) -> int:
+        return len(self.images)
+
+class VOCDetectionTV(VODBaseTV, DetectionOutput):
     """
     Dataset from Pascal VOC format to Torchvision format with image path
 
     Parameters
     ----------
     root : str
-        Path to images folder
-    ann_dir : str
-        Path to annotation XML file folder
+        Root directory of the VOC Dataset.
     class_to_idx : Dict[str, int]
         A dict which indicates the conversion from the label names to the label indices
+    image_set : str
+        Select the image_set to use, ``"train"``, ``"trainval"`` or ``"val"``.
     transform : callable, optional
         A function/transform that  takes in an PIL image and returns a transformed version. E.g, ``transforms.PILToTensor``
     target_transform : callable, optional
@@ -215,27 +249,28 @@ class VOCDetectionTV(VisionDataset, DetectionOutput):
     transforms : callable, optional
         A function/transform that takes input sample and its target as entry and returns a transformed version.
     """
+    _SPLITS_DIR = "Main"
+    _TARGET_DIR = "Annotations"
+    _TARGET_FILE_EXT = ".xml"
+
     def __init__(
         self, 
-        root: str, 
-        ann_dir: str,
+        root: str,
         class_to_idx: Dict[str, int],
+        image_set: str = "train",
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         transforms: Optional[Callable] = None
     ):
-        super().__init__(root, transforms, transform, target_transform)
+        super().__init__(root, image_set, transform, target_transform, transforms)
         self.class_to_idx = class_to_idx
         self.ids = os.listdir(root)
-        self.image_fps = [os.path.join(root, image_id) for image_id in self.ids]
-        self.ann_fps = [os.path.join(ann_dir, image_id.replace('png', 'xml').replace('jpg', 'xml')) for image_id in self.ids]
-        assert len(self.image_fps) == len(self.ann_fps)
     
     def _load_image(self, index: int) -> Image.Image:
-        return Image.open(self.image_fps[index]).convert("RGB")
+        return Image.open(self.images[index]).convert("RGB")
 
     def _load_target(self, index: int, w: int, h: int) -> List[Any]:
-        ann_path = self.ann_fps[index]
+        ann_path = self.targets[index]
         # Read XML file 
         target = self.parse_voc_xml(ET_parse(self.annotations[index]).getroot())
         objects = target['annotation']['object']
@@ -246,7 +281,7 @@ class VOCDetectionTV(VisionDataset, DetectionOutput):
         box_keys = ['xmin', 'ymin', 'xmax', 'ymax']
         boxes = [[int(obj['bndbox'][k]) for k in box_keys] for obj in objects]
         boxes = torch.tensor(boxes)
-        target = {'boxes': boxes, 'labels': labels, 'image_path': self.image_fps[index]}
+        target = {'boxes': boxes, 'labels': labels, 'image_path': self.images[index]}
         return target
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
@@ -258,9 +293,6 @@ class VOCDetectionTV(VisionDataset, DetectionOutput):
             image, target = self.transforms(image, target)
 
         return image, target
-
-    def __len__(self) -> int:
-        return len(self.ids)
     
     @staticmethod
     def parse_voc_xml(node: ET_Element) -> Dict[str, Any]:
