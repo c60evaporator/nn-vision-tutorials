@@ -1,13 +1,13 @@
-# %% Pascal VOC Segmentation + UNet by smp (ResNet34)
+# %% Pascal VOC Segmentation + FPN by smp (ResNext50) + Data Augumentation by Albumentations (https://github.com/qubvel/segmentation_models.pytorch/blob/master/examples/cars%20segmentation%20(camvid).ipynb)
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from torchvision.datasets import VOCSegmentation
-from torchvision.transforms.functional import InterpolationMode
 import segmentation_models_pytorch as smp
 from segmentation_models_pytorch.base import SegmentationModel, SegmentationHead
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 import matplotlib.pyplot as plt
 import time
 import os
@@ -17,6 +17,7 @@ import pandas as pd
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from torch_extend.segmentation.display import show_segmentations, show_predicted_segmentation_minibatch
 from torch_extend.segmentation.metrics import segmentation_ious_torchvison
+from torch_extend.segmentation.dataset import VOCSegmentationTV
 
 SEED = 42
 BATCH_SIZE = 16  # Batch size
@@ -30,6 +31,7 @@ FREEZE_PRETRAINED = False  # If True, Freeze pretrained parameters (Transfer lea
 ENCODER = 'resnet50'
 ENCODER_WEIGHTS = 'imagenet'
 
+preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 CLASS_TO_IDX = {  # https://github.com/NVIDIA/DIGITS/blob/master/examples/semantic-segmentation/pascal-voc-classes.txt
@@ -65,19 +67,39 @@ torch.manual_seed(SEED)
 
 ###### 1. Create dataset & Preprocessing ######
 # Recommended resize_size=520 but other size is available (https://pytorch.org/vision/main/models/generated/torchvision.models.segmentation.fcn_resnet50.html)
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),  # Resize the image to 224px x 224px
-    transforms.ToTensor(),  # Convert from range [0, 255] to a torch.FloatTensor in the range [0.0, 1.0]
-    transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)  # Normalization (mean and std of the imagenet dataset for normalizing)
-])
 # Define preprocessing of the target for VOCSegmentation dataset (https://poutyne.org/examples/semantic_segmentation.html)
-def replace_tensor_value_(tensor, a, border_class):
-    tensor[tensor == a] = border_class
-    return tensor
-target_transform = transforms.Compose([
-    transforms.Resize((224, 224), interpolation=InterpolationMode.NEAREST),  # Resize the image to 224px x 224px
-    transforms.PILToTensor(),  # Convert from PIL Image to a torch.FloatTensor in the range [0.0, 1.0]
-    transforms.Lambda(lambda x: replace_tensor_value_(x.squeeze(0).long(), 255, len(CLASS_TO_IDX)))  # Replace the border to the border class ID
+albumentations_transform = A.Compose([
+    A.HorizontalFlip(p=0.5),
+    A.ShiftScaleRotate(scale_limit=0.5, rotate_limit=0, shift_limit=0.1, p=1, border_mode=0),
+    A.PadIfNeeded(min_height=320, min_width=320, always_apply=True, border_mode=0),
+    A.RandomCrop(height=320, width=320, always_apply=True),
+    A.GaussNoise(p=0.2),
+    A.Perspective(p=0.5),
+    A.OneOf(
+        [
+            A.CLAHE(p=1),
+            A.RandomBrightnessContrast(p=1),
+            A.RandomGamma(p=1),
+        ],
+        p=0.9,
+    ),
+    A.OneOf(
+        [
+            A.Sharpen(p=1),
+            A.Blur(blur_limit=3, p=1),
+            A.MotionBlur(blur_limit=3, p=1),
+        ],
+        p=0.9,
+    ),
+    A.OneOf(
+        [
+            A.RandomBrightnessContrast(p=1),
+            A.HueSaturationValue(p=1),
+        ],
+        p=0.9,
+    ),
+    A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+    ToTensorV2()
 ])
 # Reverse normalization transform for showing the image
 denormalize_transform = transforms.Compose([
@@ -86,9 +108,9 @@ denormalize_transform = transforms.Compose([
 ])
 # Define preprocessing for target
 # Load train dataset from image folder
-train_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
-                                image_set='train', download=True,
-                                transform = transform, target_transform=target_transform)
+train_dataset = VOCSegmentationTV(root = f'{DATA_SAVE_ROOT}/VOCdevkit/VOC2012',
+                                  class_to_idx=CLASS_TO_IDX, image_set='train',
+                                  albumentations_transform = albumentations_transform)
 # Define class names
 idx_to_class = {v: k for k, v in CLASS_TO_IDX.items()}
 num_classes = len(idx_to_class) + 1  # Classification classes + 1 (border)
@@ -102,21 +124,21 @@ for i, (img, target) in enumerate(zip(imgs, targets)):
     img = (img*255).to(torch.uint8)  # Change from float[0, 1] to uint[0, 255]
     show_segmentations(img, target, idx_to_class, bg_idx=0, border_idx=len(CLASS_TO_IDX))
 # Load validation dataset
-val_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
-                              image_set='val', download=True,
-                              transform = transform, target_transform=target_transform)
+val_dataset = VOCSegmentationTV(root = f'{DATA_SAVE_ROOT}/VOCdevkit/VOC2012',
+                                  class_to_idx=CLASS_TO_IDX, image_set='val',
+                                  albumentations_transform = albumentations_transform)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS)
 
 ###### 2. Define Model ######
 # Load a pretrained network
-model = smp.Unet(encoder_name=ENCODER, encoder_weights=ENCODER_WEIGHTS, classes=num_classes)
+model = smp.FPN(encoder_name=ENCODER, encoder_weights=ENCODER_WEIGHTS, classes=num_classes, activation='sigmoid')
 # Freeze pretrained parameters
 if FREEZE_PRETRAINED:
     for param in model.parameters():
         param.requires_grad = False
     in_channels_seghead = model.segmentation_head[0].in_channels
     model.segmentation_head = SegmentationHead(in_channels=in_channels_seghead, 
-            out_channels=num_classes, activation=None, kernel_size=3)
+            out_channels=num_classes, activation='sigmoid', kernel_size=3)
 print(model)
 # Send the model to GPU
 model.to(device)
@@ -222,11 +244,11 @@ plt.show()
 params = model.state_dict()
 if not os.path.exists(PARAMS_SAVE_ROOT):
     os.makedirs(PARAMS_SAVE_ROOT)
-torch.save(params, f'{PARAMS_SAVE_ROOT}/vocseg_unet_{ENCODER}.prm')
+torch.save(params, f'{PARAMS_SAVE_ROOT}/vocseg_fpn_{ENCODER}_aug.prm')
 
 ###### Inference in the first mini-batch ######
 # Reload parameters
-params_load = torch.load(f'{PARAMS_SAVE_ROOT}/vocseg_unet_{ENCODER}.prm')
+params_load = torch.load(f'{PARAMS_SAVE_ROOT}/vocseg_fpn_{ENCODER}_aug.prm')
 model.load_state_dict(params_load)
 # Inference
 val_iter = iter(val_loader)
