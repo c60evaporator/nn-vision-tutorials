@@ -1,4 +1,6 @@
 import torchvision.transforms as v2
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
@@ -26,22 +28,27 @@ def get_transform(model_name):
     }
     return transforms[model_name]
     
-def get_target_transform(model_name, border_idx, src_border=255):
+def get_target_transform(model_name):
     target_transforms = {
         'FCN_ResNet50': v2.Compose([
-            v2.PILToTensor(),
-            v2.Lambda(lambda x: replace_tensor_value_(x.squeeze(0).long(), src_border, border_idx))
+            v2.PILToTensor()
         ]),
         'DeepLabV3_ResNet50': v2.Compose([
-            v2.PILToTensor(),
-            v2.Lambda(lambda x: replace_tensor_value_(x.squeeze(0).long(), src_border, border_idx))
+            v2.PILToTensor()
         ]),
         'LRASPP_MobileNet': v2.Compose([
-            v2.PILToTensor(),
-            v2.Lambda(lambda x: replace_tensor_value_(x.squeeze(0).long(), src_border, border_idx))
+            v2.PILToTensor()
         ]),
     }
     return target_transforms[model_name]
+
+def get_albumentations_transform(model_name):
+    albumentations_transforms = {
+        'FCN_ResNet50': None,
+        'DeepLabV3_ResNet50': None,
+        'LRASPP_MobileNet': None,
+    }
+    return albumentations_transforms[model_name]
 
 def get_dataloader(model_name, dataset, batch_size, num_workers):
     dataloaders = {

@@ -15,6 +15,7 @@ class SegEval(Base):
     dataloader = Column(String)
     transform = Column(String)
     target_transform = Column(String)
+    albumentations_transform = Column(String)
     batch_size = Column(Integer)
     area_iou = Column(Float)
     mean_iou = Column(Float)

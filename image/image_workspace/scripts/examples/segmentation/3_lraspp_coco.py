@@ -67,7 +67,6 @@ denormalize_transform = transforms.Compose([
     transforms.Normalize(mean=[-mean/std for mean, std in zip(IMAGENET_MEAN, IMAGENET_STD)],
                          std=[1/std for std in IMAGENET_STD])
 ])
-# Define preprocessing for target
 # Load train dataset from image folder
 train_dataset = CocoSegmentationTV(root = f'{DATA_SAVE_ROOT}/COCO/val2017',
                                    annFile = f'{DATA_SAVE_ROOT}/COCO/annotations/instances_val2017.json',

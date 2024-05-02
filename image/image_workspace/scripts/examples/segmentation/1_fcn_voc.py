@@ -87,14 +87,13 @@ denormalize_transform = transforms.Compose([
     transforms.Normalize(mean=[-mean/std for mean, std in zip(IMAGENET_MEAN, IMAGENET_STD)],
                          std=[1/std for std in IMAGENET_STD])
 ])
-# Define preprocessing for target
+# Define class names
+idx_to_class = {v: k for k, v in CLASS_TO_IDX.items()}
+num_classes = len(idx_to_class) + 1  # Classification classes + 1 (border)
 # Load train dataset from image folder
 train_dataset = VOCSegmentation(root = DATA_SAVE_ROOT, year='2012',
                                 image_set='train', download=True,
                                 transform = transform, target_transform=target_transform)
-# Define class names
-idx_to_class = {v: k for k, v in CLASS_TO_IDX.items()}
-num_classes = len(idx_to_class) + 1  # Classification classes + 1 (border)
 # Define mini-batch DataLoader
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS,
                           collate_fn=None if SAME_IMG_SIZE else collate_fn)

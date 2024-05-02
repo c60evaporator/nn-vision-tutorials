@@ -64,13 +64,13 @@ transform = transforms.Compose([
 ])
 # Define preprocessing for target
 target_transform = transforms.Lambda(lambda x: target_transform_to_torchvision(x, in_format='pascal_voc', class_to_idx=CLASS_TO_IDX))
+# Define class names
+idx_to_class = {v: k for k, v in CLASS_TO_IDX.items()}
+num_classes = len(idx_to_class) + 1  # Classification classes + 1 (background)
 # Load train dataset from image folder
 train_dataset = VOCDetection(root = DATA_SAVE_ROOT, year='2012',
                              image_set='train', download=True,
                              transform = transform, target_transform=target_transform)
-# Define class names
-idx_to_class = {v: k for k, v in CLASS_TO_IDX.items()}
-num_classes = len(idx_to_class) + 1  # Classification classes + 1 (background)
 # Define collate_fn (Default collate_fn is not available because the shape of `targets` is list[Dict[str, Tensor]]. See https://github.com/pytorch/vision/blob/main/references/detection/utils.py#L203C8-L203C8)
 def collate_fn(batch):
     return tuple(zip(*batch))

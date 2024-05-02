@@ -81,8 +81,8 @@ class CocoSegmentationTV(CocoDetection, SegmentationOutput):
         albumentations_transform: Optional[Callable] = None,
     ) -> None:
         super().__init__(root, annFile, transform, target_transform, transforms)
-        self.class_to_idx = {
-            v['name']: v['id']
+        self.idx_to_class = {
+            v['id']: v['name']
             for k, v in self.coco.cats.items()
         }
         self.albumentations_transform = albumentations_transform
@@ -134,8 +134,8 @@ class VOCSegmentationTV(VODBaseTV, SegmentationOutput):
     ----------
     root : str
         Root directory of the VOC Dataset.
-    class_to_idx : Dict[str, int]
-        A dict which indicates the conversion from the label names to the label indices
+    idx_to_class : Dict[int, str]
+        A dict which indicates the conversion from the label indices to the label names
     image_set : str
         Select the image_set to use, ``"train"``, ``"trainval"`` or ``"val"``.
     transform : callable, optional
@@ -154,7 +154,7 @@ class VOCSegmentationTV(VODBaseTV, SegmentationOutput):
     def __init__(
         self,
         root: str,
-        class_to_idx: Dict[str, int],
+        idx_to_class: Dict[int, str],
         image_set: str = "train",
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
@@ -164,7 +164,7 @@ class VOCSegmentationTV(VODBaseTV, SegmentationOutput):
         super().__init__(root, image_set, transform, target_transform, transforms)
 
         # Additional
-        self.class_to_idx = class_to_idx
+        self.idx_to_class = idx_to_class
         self.albumentations_transform = albumentations_transform
 
     @property
@@ -187,6 +187,6 @@ class VOCSegmentationTV(VODBaseTV, SegmentationOutput):
 
         # Postprocessing of the target
         target = target.squeeze(0).long()  # Convert to int64
-        target[target == 255] = len(self.class_to_idx)  # Replace the border of the target mask
+        target[target == 255] = len(self.idx_to_class)  # Replace the border of the target mask
 
         return image, target

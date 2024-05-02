@@ -76,7 +76,7 @@ if dataset_info is not None:
                 latest_idx = pd.to_datetime(df_history_model['created_at']).idxmax()
                 df_history_model = df_history_model[['model_name', 'area_iou', 'mean_iou', 'evaluation_id']].iloc[latest_idx].to_dict()
                 df_history.append(df_history_model)
-        df_history = pd.DataFrame(df_history)
+        df_history = pd.DataFrame(df_history) if len(df_history) > 0 else pd.DataFrame(columns=['model_name', 'area_iou', 'mean_iou', 'evaluation_id'])
         # Merge and display the model scores
         df_models = pd.merge(df_models, df_history, on='model_name', how='left')
         st.dataframe(df_models[['model_name', 'area_iou', 'mean_iou', 'num_classes', 'weight_name']])

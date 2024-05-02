@@ -141,9 +141,8 @@ with tab_new:
             with col_loader:
                 st.markdown('**Loader parameters**')
                 # Get the PyTorch dataset
-                dataset, transform, target_transform = get_evaluation_dataset(
-                    selected_format, selected_modelname, num_classes,
-                    dataset_root, image_set)
+                dataset, transform, target_transform, albumentations_transform = get_evaluation_dataset(
+                    selected_format, selected_modelname, idx_to_class, dataset_root, image_set)
                 # Evaluation parameters
                 col_eval_params = st.columns(3)
                 with col_eval_params[0]:
@@ -164,6 +163,7 @@ with tab_new:
                     'dataloader': dataloader.__class__.__name__,
                     'transform': str(transform),
                     'target_transform': str(target_transform),
+                    'albumentations_transform': str(albumentations_transform),
                     'batch_size': batch_size,
                     'mean_iou': None,
                     'label_names': json.dumps(idx_to_class),

@@ -21,8 +21,8 @@ class DetectionOutput():
         return images, targets
 
     def output_coco_annotation(self, info_dict=None, licenses_list=None):
-        if self.class_to_idx is None:
-            raise AttributeError('The "class_to_idx" attribute should not be None if the output format is COCO')
+        if self.idx_to_class is None:
+            raise AttributeError('The "idx_to_class" attribute should not be None if the output format is COCO')
         # Get target and images as the TorchVision format
         images, targets = self._get_images_targets()
         # Convert the target to COCO format
@@ -67,7 +67,7 @@ class DetectionOutput():
                 'id': idx,
                 'name': label_name
             }
-            for label_name, idx in self.class_to_idx.items()
+            for idx, label_name in self.idx_to_class.items()
         ]
         # Output the annotation json
         ann_dict = {
@@ -105,8 +105,8 @@ class CocoDetectionTV(CocoDetection, DetectionOutput):
         transforms: Optional[Callable] = None,
     ) -> None:
         super().__init__(root, annFile, transform, target_transform, transforms)
-        self.class_to_idx = {
-            v['name']: v['id']
+        self.idx_to_class = {
+            v['id']: v['name']
             for k, v in self.coco.cats.items()
         }
 
@@ -134,8 +134,8 @@ class YoloDetectionTV(VisionDataset, DetectionOutput):
         Path to images folder
     ann_dir : str
         Path to annotation text file folder
-    class_to_idx : Dict[str, int]
-        A dict which indicates the conversion from the label names to the label indices
+    idx_to_class : Dict[int, str]
+        A dict which indicates the conversion from the label indices to the label names
     transform : callable, optional
         A function/transform that  takes in an PIL image and returns a transformed version. E.g, ``transforms.PILToTensor``
     target_transform : callable, optional
@@ -147,13 +147,13 @@ class YoloDetectionTV(VisionDataset, DetectionOutput):
         self, 
         root: str, 
         ann_dir: str,
-        class_to_idx: Dict[str, int] = None,
+        idx_to_class: Dict[int, str] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         transforms: Optional[Callable] = None
     ):
         super().__init__(root, transforms, transform, target_transform)
-        self.class_to_idx = class_to_idx
+        self.idx_to_class = idx_to_class
         self.ids = os.listdir(root)
         self.images = [os.path.join(root, image_id) for image_id in self.ids]
         self.targets = [os.path.join(ann_dir, image_id.replace('png', 'txt').replace('jpg', 'txt')) for image_id in self.ids]
@@ -238,8 +238,8 @@ class VOCDetectionTV(VODBaseTV, DetectionOutput):
     ----------
     root : str
         Root directory of the VOC Dataset.
-    class_to_idx : Dict[str, int]
-        A dict which indicates the conversion from the label names to the label indices
+    idx_to_class : Dict[int, str]
+        A dict which indicates the conversion from the label indices to the label names
     image_set : str
         Select the image_set to use, ``"train"``, ``"trainval"`` or ``"val"``.
     transform : callable, optional
@@ -256,14 +256,15 @@ class VOCDetectionTV(VODBaseTV, DetectionOutput):
     def __init__(
         self, 
         root: str,
-        class_to_idx: Dict[str, int],
+        idx_to_class : Dict[int, str],
         image_set: str = "train",
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         transforms: Optional[Callable] = None
     ):
         super().__init__(root, image_set, transform, target_transform, transforms)
-        self.class_to_idx = class_to_idx
+        self.idx_to_class = idx_to_class
+        self.class_to_idx = {v: k for k, v in idx_to_class.items()}
         self.ids = os.listdir(root)
     
     def _load_image(self, index: int) -> Image.Image:

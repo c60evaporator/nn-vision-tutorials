@@ -127,20 +127,23 @@ def segmentation_eval_torchvison(db: Session, evaluation_id, created_at,
 
     return evaluation
 
-def get_evaluation_dataset(dataset_format, model_name, num_classes,
-                           dataset_root, image_set):
+def get_evaluation_dataset(dataset_format, model_name, 
+                           idx_to_class, dataset_root, image_set):
     model_format = SEGMENTATION_MODELS[model_name]['format']
     transform = preproessing.get_transform(model_name)
-    target_transform = preproessing.get_target_transform(model_name, num_classes)
+    target_transform = preproessing.get_target_transform(model_name)
+    albumentations_transform = preproessing.get_albumentations_transform(model_name)
     if model_format == 'TorchVision':
         if dataset_format == 'VOC':
-            dataset = VOCSegmentationEval(dataset_root, image_set=image_set,
-                                          transform=transform, target_transform=target_transform)
+            dataset = VOCSegmentationEval(dataset_root, idx_to_class, image_set=image_set,
+                                          transform=transform, target_transform=target_transform,
+                                          albumentations_transform=albumentations_transform)
         elif dataset_format == 'COCO':
             annFile = f'{os.path.dirname(dataset_root)}/annotations/{image_set}.json'
             dataset = CocoSegmentationEval(root=dataset_root, annFile=annFile,
-                                           transform=transform, target_transform=target_transform)
-    return dataset, transform, target_transform
+                                           transform=transform, target_transform=target_transform,
+                                           albumentations_transform=albumentations_transform)
+    return dataset, transform, target_transform, albumentations_transform
 
 class VOCSegmentationEval(VOCSegmentationTV):
     def __getitem__(self, index: int) -> Tuple[Any, Any, Any]:
