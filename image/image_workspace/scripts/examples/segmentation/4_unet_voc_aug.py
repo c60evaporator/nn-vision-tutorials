@@ -110,7 +110,7 @@ idx_to_class = {v: k for k, v in CLASS_TO_IDX.items()}
 num_classes = len(idx_to_class) + 1  # Classification classes + 1 (border)
 # Load train dataset from image folder
 train_dataset = VOCSegmentationTV(root = f'{DATA_SAVE_ROOT}/VOCdevkit/VOC2012',
-                                  class_to_idx=CLASS_TO_IDX, image_set='train',
+                                  idx_to_class=idx_to_class, image_set='train',
                                   albumentations_transform = albumentations_transform)
 # Define mini-batch DataLoader
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS)
@@ -123,8 +123,8 @@ for i, (img, target) in enumerate(zip(imgs, targets)):
     show_segmentations(img, target, idx_to_class, bg_idx=0, border_idx=len(CLASS_TO_IDX))
 # Load validation dataset
 val_dataset = VOCSegmentationTV(root = f'{DATA_SAVE_ROOT}/VOCdevkit/VOC2012',
-                                  class_to_idx=CLASS_TO_IDX, image_set='val',
-                                  albumentations_transform = albumentations_transform)
+                                idx_to_class=idx_to_class, image_set='val',
+                                albumentations_transform = albumentations_transform)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_LOAD_WORKERS)
 
 ###### 2. Define Model ######
