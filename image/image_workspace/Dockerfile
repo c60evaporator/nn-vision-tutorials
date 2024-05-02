@@ -50,10 +50,10 @@ RUN pip install cython
 
 ###### Semantic Segmentation ######
 # Install segmentation_models.pytorch (https://github.com/qubvel/segmentation_models.pytorch)
-#RUN pip install segmentation-models-pytorch
+RUN pip install segmentation-models-pytorch
 
 # Install Segment Anything
-#RUN pip install git+https://github.com/facebookresearch/segment-anything.git
+RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 
 
 # Register working directory

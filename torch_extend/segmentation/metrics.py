@@ -92,7 +92,8 @@ def segmentation_ious_batch(predictions: Dict[Literal['out', 'aux'], Tensor],
     return tps_batch, fps_batch, fns_batch, ious_batch
 
 def segmentation_ious_torchvison(dataloader: DataLoader, model: nn.Module, device: Literal['cuda', 'cpu'],
-                                 idx_to_class: Dict[int, str], border_idx:int = None):
+                                 idx_to_class: Dict[int, str], border_idx:int = None,
+                                 prediction_as_dict: bool = True):
     """
     Calculate average precisions with TorchVision models and DataLoader
 
@@ -110,6 +111,9 @@ def segmentation_ious_torchvison(dataloader: DataLoader, model: nn.Module, devic
     idx_to_class : Dict[int, str]
         A dict for converting class IDs to class names.
 
+    prediction_as_dict : bool
+        If True, the result of `model()` is acquired as {'out': Tensor()} like the result of TorchVision. If False, the result of `model()` is acquired as Tensor() like the result of segmentation_models.pytorch.
+
     Returns
     -------
     aps : Dict[int, Dict[Literal['label_name', 'average_precision', 'precision', 'recall'], Any]]
@@ -126,6 +130,8 @@ def segmentation_ious_torchvison(dataloader: DataLoader, model: nn.Module, devic
         model.eval()  # Set the evaluation mode
         with no_grad():  # Avoid memory overflow
             predictions = model(imgs_gpu)
+        if not prediction_as_dict:
+            predictions = {'out': predictions}
         # Calculate TP, FP, FN of the batch
         tps_batch, fps_batch, fns_batch, ious_batch = segmentation_ious_batch(predictions, targets, idx_to_class, border_idx)
         tps_all.append(tps_batch)

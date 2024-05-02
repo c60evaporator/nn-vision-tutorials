@@ -3,8 +3,8 @@ pandas
 pyyaml
 seaborn
 jupyter
-segmentation-models-pytorch
 opencv-python
 pycocotools
 onnxruntime
 onnx
+albumentations
