@@ -1,10 +1,10 @@
 import torchvision.transforms as v2
 import torchvision.transforms.functional as F2
 from torchvision.datasets import CocoDetection, VisionDataset
-import streamlit as st
 import os
-from typing import Any, Callable, List, Tuple, Optional
+from typing import Any, Callable, List, Dict, Tuple, Optional
 from PIL import Image
+import cv2
 from pycocotools import mask as coco_mask
 import numpy as np
 from xml.etree.ElementTree import Element as ET_Element
@@ -68,8 +68,8 @@ class CocoSegmentationTV(CocoDetection, SegmentationOutput):
         A function/transform that takes in the target and transforms it.
     transforms : callable, optional
         A function/transform that takes input sample and its target as entry and returns a transformed version.
-    random_crop : tuple, optional
-        If not None, `torchvision.transforms.RandomCrop` with the specified size is applied to both the PIL image and the target. This transform is applied in advance of `transform` and `target_transform`. (https://stackoverflow.com/questions/58215056/how-to-use-torchvision-transforms-for-data-augmentation-of-segmentation-task-in)
+    albumentations_transform : albumentations.Compose, optional
+        An Albumentations function that is applied to both the PIL image and the target. This transform is applied in advance of `transform` and `target_transform`. (https://stackoverflow.com/questions/58215056/how-to-use-torchvision-transforms-for-data-augmentation-of-segmentation-task-in)
     """
     def __init__(
         self,
@@ -78,14 +78,14 @@ class CocoSegmentationTV(CocoDetection, SegmentationOutput):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         transforms: Optional[Callable] = None,
-        random_crop: Optional[Tuple] = None,
+        albumentations_transform: Optional[Callable] = None,
     ) -> None:
         super().__init__(root, annFile, transform, target_transform, transforms)
         self.class_to_idx = {
             v['name']: v['id']
             for k, v in self.coco.cats.items()
         }
-        self.random_crop = random_crop
+        self.albumentations_transform = albumentations_transform
 
     def _load_target(self, id: int, height: int, width: int) -> List[Any]:
         target_src = self.coco.loadAnns(self.coco.getAnnIds(id))
@@ -105,17 +105,28 @@ class CocoSegmentationTV(CocoDetection, SegmentationOutput):
         image = self._load_image(id)
         target = self._load_target(id, image.size[1], image.size[0])
         target = Image.fromarray(target)
+        aa = np.asarray(target)
 
-        if self.random_crop:
-            i, j, h, w = v2.RandomCrop.get_params(image, self.random_crop)
-            image = F2.crop(image, i, j, h, w)
-            target = F2.crop(target, i, j, h, w)
+        if self.albumentations_transform is not None:
+            A_transformed = self.albumentations_transform(image=np.array(image), mask=np.asarray(target).copy())
+            image = A_transformed['image']
+            target = A_transformed['mask']
 
         if self.transforms is not None:
             image, target = self.transforms(image, target)
 
+        # Postprocessing of the target
+        target = target.squeeze(0).long()  # Convert to int64
+        a = target.numpy()
+
         return image, target
-    
+
+def preprocess_mask(mask):
+    mask = mask.astype(np.float32)
+    mask[mask == 2.0] = 0.0
+    mask[(mask == 1.0) | (mask == 3.0)] = 1.0
+    return mask
+
 class VOCSegmentationTV(VODBaseTV, SegmentationOutput):
     """`Pascal VOC <http://host.robots.ox.ac.uk/pascal/VOC/>`_ Segmentation Dataset.
 
@@ -123,6 +134,8 @@ class VOCSegmentationTV(VODBaseTV, SegmentationOutput):
     ----------
     root : str
         Root directory of the VOC Dataset.
+    class_to_idx : Dict[str, int]
+        A dict which indicates the conversion from the label names to the label indices
     image_set : str
         Select the image_set to use, ``"train"``, ``"trainval"`` or ``"val"``.
     transform : callable, optional
@@ -131,8 +144,8 @@ class VOCSegmentationTV(VODBaseTV, SegmentationOutput):
         A function/transform that takes in the target and transforms it.
     transforms : callable, optional
         A function/transform that takes input sample and its target as entry and returns a transformed version.
-    random_crop : tuple, optional
-        If not None, `torchvision.transforms.RandomCrop` with the specified size is applied to both the PIL image and the target. This transform is applied in advance of `transform` and `target_transform`. (https://stackoverflow.com/questions/58215056/how-to-use-torchvision-transforms-for-data-augmentation-of-segmentation-task-in)
+    albumentations_transform : albumentations.Compose, optional
+        An Albumentations function that is applied to both the PIL image and the target. This transform is applied in advance of `transform` and `target_transform`. (https://stackoverflow.com/questions/58215056/how-to-use-torchvision-transforms-for-data-augmentation-of-segmentation-task-in)
     """
     _SPLITS_DIR = "Segmentation"
     _TARGET_DIR = "SegmentationClass"
@@ -141,31 +154,39 @@ class VOCSegmentationTV(VODBaseTV, SegmentationOutput):
     def __init__(
         self,
         root: str,
+        class_to_idx: Dict[str, int],
         image_set: str = "train",
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         transforms: Optional[Callable] = None,
-        random_crop: Optional[Tuple] = None,
+        albumentations_transform: Optional[Callable] = None,
     ):
         super().__init__(root, image_set, transform, target_transform, transforms)
 
         # Additional
-        self.random_crop = random_crop
+        self.class_to_idx = class_to_idx
+        self.albumentations_transform = albumentations_transform
 
     @property
     def masks(self) -> List[str]:
         return self.targets
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
+        """"""
         image = Image.open(self.images[index]).convert("RGB")
         target = Image.open(self.masks[index])
 
-        if self.random_crop:
-            i, j, h, w = v2.RandomCrop.get_params(image, self.random_crop)
-            image = F2.crop(image, i, j, h, w)
-            target = F2.crop(target, i, j, h, w)
+        if self.albumentations_transform is not None:
+            # https://albumentations.ai/docs/examples/pytorch_semantic_segmentation/
+            A_transformed = self.albumentations_transform(image=np.array(image), mask=np.asarray(target).copy())
+            image = A_transformed['image']
+            target = A_transformed['mask']
 
         if self.transforms is not None:
             image, target = self.transforms(image, target)
+
+        # Postprocessing of the target
+        target = target.squeeze(0).long()  # Convert to int64
+        target[target == 255] = len(self.class_to_idx)  # Replace the border of the target mask
 
         return image, target
