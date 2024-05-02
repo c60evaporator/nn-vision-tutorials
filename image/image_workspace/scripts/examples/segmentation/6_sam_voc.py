@@ -1,6 +1,7 @@
 # %%
 # https://blog.roboflow.com/how-to-use-segment-anything-model-sam/
 # https://www.kaggle.com/code/mrinalmathur/segment-anything-model-tutorial
+# Note: SAM model doesn't have classification function https://github.com/facebookresearch/segment-anything/issues/77
 
 import torch
 import torch.nn as nn
