@@ -45,7 +45,7 @@ def _convert_polygon_to_mask(segmentations, height, width):
 
 def _merge_masks(labels: np.ndarray, masks: np.ndarray):
     """
-    Merge multiple masks int a mask
+    Merge multiple masks into a mask
     """
     dst_mask = np.zeros((masks.shape[1], masks.shape[2]), dtype=np.uint8)
     for label, src_mask in zip(labels, masks):
@@ -105,7 +105,6 @@ class CocoSegmentationTV(CocoDetection, SegmentationOutput):
         image = self._load_image(id)
         target = self._load_target(id, image.size[1], image.size[0])
         target = Image.fromarray(target)
-        aa = np.asarray(target)
 
         if self.albumentations_transform is not None:
             A_transformed = self.albumentations_transform(image=np.array(image), mask=np.asarray(target).copy())
@@ -117,15 +116,8 @@ class CocoSegmentationTV(CocoDetection, SegmentationOutput):
 
         # Postprocessing of the target
         target = target.squeeze(0).long()  # Convert to int64
-        a = target.numpy()
 
         return image, target
-
-def preprocess_mask(mask):
-    mask = mask.astype(np.float32)
-    mask[mask == 2.0] = 0.0
-    mask[(mask == 1.0) | (mask == 3.0)] = 1.0
-    return mask
 
 class VOCSegmentationTV(VODBaseTV, SegmentationOutput):
     """`Pascal VOC <http://host.robots.ox.ac.uk/pascal/VOC/>`_ Segmentation Dataset.
