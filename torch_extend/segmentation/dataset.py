@@ -29,7 +29,6 @@ def _convert_polygon_to_mask(segmentations, height, width):
     reference https://github.com/facebookresearch/detr/blob/main/datasets/coco.py
     """
     masks = []
-    np_masks = []
     for polygons in segmentations:
         rles = coco_mask.frPyObjects(polygons, height, width)
         mask = coco_mask.decode(rles)
