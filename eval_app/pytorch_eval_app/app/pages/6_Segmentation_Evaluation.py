@@ -6,13 +6,13 @@ import pandas as pd
 import streamlit as st
 from st_aggrid import AgGrid, GridUpdateMode, GridOptionsBuilder
 
-import torch_extend.segmentation.metrics as metrics
-from utils.segmentation.dataset import list_datasets, get_seg_voc_dataset
+from torch_extend.segmentation.dataset_utils import list_datasets, get_seg_voc_dataset
+
 from utils.segmentation.models import list_seg_models, list_seg_weights, load_seg_model
 from utils.segmentation.evaluation import get_evaluation_dataset, segmentation_eval_torchvison
 from sql.database import get_db
 import sql.crud as crud
-import preprocessing.seg_preprocessing as preproessing
+import config.segmentation.preprocessing as preprocessing
 
 DEVICE = 'cuda'
 
@@ -150,7 +150,7 @@ with tab_new:
                 with col_eval_params[1]:
                     num_workers = st.number_input('Num workers', min_value=1, max_value=8, value=4, step=1)
                 # Create dataloader
-                dataloader = preproessing.get_dataloader(selected_modelname, dataset, batch_size, num_workers)
+                dataloader = preprocessing.get_dataloader(selected_modelname, dataset, batch_size, num_workers)
             ###### Start the evaluation ######
             if st.button('Start evaluation'):
                 # Create the evaluation record

@@ -13,7 +13,7 @@ import json
 from torch_extend.segmentation.metrics import segmentation_ious_one_image
 from torch_extend.segmentation.dataset import VOCSegmentationTV, CocoSegmentationTV
 import sql.crud as crud
-import preprocessing.seg_preprocessing as preproessing
+import config.segmentation.preprocessing as preprocessing
 from utils.segmentation.models import SEGMENTATION_MODELS
 
 def segmentation_eval_batch(db: Session, evaluation_id: int, created_at: datetime,
@@ -130,9 +130,9 @@ def segmentation_eval_torchvison(db: Session, evaluation_id, created_at,
 def get_evaluation_dataset(dataset_format, model_name, 
                            idx_to_class, dataset_root, image_set):
     model_format = SEGMENTATION_MODELS[model_name]['format']
-    transform = preproessing.get_transform(model_name)
-    target_transform = preproessing.get_target_transform(model_name)
-    albumentations_transform = preproessing.get_albumentations_transform(model_name)
+    transform = preprocessing.get_transform(model_name)
+    target_transform = preprocessing.get_target_transform(model_name)
+    albumentations_transform = preprocessing.get_albumentations_transform(model_name)
     if model_format == 'TorchVision':
         if dataset_format == 'VOC':
             dataset = VOCSegmentationEval(dataset_root, idx_to_class, image_set=image_set,

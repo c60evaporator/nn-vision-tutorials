@@ -6,11 +6,11 @@ from st_aggrid import AgGrid, GridUpdateMode, GridOptionsBuilder
 from streamlit_image_comparison import image_comparison
 import numpy as np
 import pandas as pd
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 from torch_extend.segmentation.display import array1d_to_pil_image
+from torch_extend.segmentation.dataset_utils import list_datasets, get_seg_voc_dataset, convert_seg_voc_mask, read_image_metadata
 
-from utils.segmentation.dataset import list_datasets, get_seg_voc_dataset, convert_seg_voc_mask, read_image_metadata
 from utils.segmentation.models import load_seg_default_models, inference_and_score
 from utils.segmentation.display import show_seg_legend, create_overlayed_annotation, get_segmentation_palette
 from sql.database import get_db
@@ -111,7 +111,7 @@ if dataset_info is not None:
     col_radio, col_radioinfo = st.columns([4, 1])
     with col_radio:
         records_per_table = config['display']['records_per_table']
-        n_tables = int(round(n_images / records_per_table, 0))
+        n_tables = int(n_images / records_per_table) + 1
         table_idx = st.radio('Page', tuple(range(1, n_tables + 1)), horizontal=True)
         i_start = records_per_table * (table_idx - 1)
         i_end = records_per_table * table_idx
@@ -152,20 +152,26 @@ if dataset_info is not None:
         if img_process_type == 'Annotation':
             with col_display_type:
                 img_display_type = st.radio('Image display type', ['comparison', 'overlay'], horizontal=True)
-            # Write the legend
-            palette = get_segmentation_palette(selected_format, bg_idx, border_idx)
-            mask_image = array1d_to_pil_image(mask[0], palette)
-            show_seg_legend(mask, idx_to_class, palette, border_idx, dark_indices=[border_idx])
+            col_slider_legend = st.columns([3, 2])
+            with col_slider_legend[0]:
+                # Write the legend
+                palette = get_segmentation_palette(selected_format, bg_idx, border_idx)
+                mask_image = array1d_to_pil_image(mask[0], palette)
+                show_seg_legend(mask, idx_to_class, palette, border_idx, dark_indices=[border_idx])
+            with col_slider_legend[1]:
+                row_bright = st.slider('Raw img brightness', 0.2, 3.0, value=1.0, step=0.2)
+                enhancer = ImageEnhance.Brightness(raw_image)
+                proc_row_image = enhancer.enhance(row_bright)
             # Show the images with image_comparison
             if img_display_type == 'comparison':
                 image_comparison = image_comparison(
-                    img1=raw_image, label1='raw',
+                    img1=proc_row_image, label1='raw',
                     img2=mask_image, label2='annotation'
                 )
             # Show the overlayed image
             elif img_display_type == 'overlay':
                 segmentation_overlay_alpha = st.slider('Alpha', 0.0, 1.0, value=0.5, step=0.1)
-                overlayed_image = create_overlayed_annotation(raw_image, ann_image, segmentation_overlay_alpha)
+                overlayed_image = create_overlayed_annotation(proc_row_image, ann_image, segmentation_overlay_alpha)
                 st.image(overlayed_image)
 
         ###### Display the model comparison ######

@@ -7,12 +7,15 @@ from torchvision import models
 import streamlit as st
 
 from torch_extend.segmentation.metrics import segmentation_ious_one_image
-import preprocessing.seg_preprocessing as preproessing
+import config.segmentation.preprocessing as preprocessing
 
 SEGMENTATION_MODELS = {
-    'FCN_ResNet50': {'format': 'TorchVision', 'pattern': '.*?(fcn).*?(resnet50).*'},
-    'DeepLabV3_ResNet50': {'format': 'TorchVision', 'pattern': '.*?(deeplabv3).*?(resnet50).*'},
-    'LRASPP_MobileNet': {'format': 'TorchVision', 'pattern': '.*?(lraspp).*?(mobilenet).*'},
+    'FCN_ResNet50': {'format': 'TorchVision', 'group': 'FCN', 'pattern': '.*?(fcn|FCN).*?(resnet50|ResNet50).*'},
+    'FCN_ResNet101': {'format': 'TorchVision', 'group': 'FCN', 'pattern': '.*?(fcn|FCN).*?(resnet101|ResNet101).*'},
+    'DeepLabV3_MobileNet': {'format': 'TorchVision', 'group': 'DeepLabV3', 'pattern': '.*?(deeplabv3|DeepLabV3).*?(mobilenet|MobileNet).*'},
+    'DeepLabV3_ResNet50': {'format': 'TorchVision', 'group': 'DeepLabV3', 'pattern': '.*?(deeplabv3|DeepLabV3).*?(resnet50|ResNet50).*'},
+    'DeepLabV3_ResNet101': {'format': 'TorchVision', 'group': 'DeepLabV3', 'pattern': '.*?(deeplabv3|DeepLabV3).*?(resnet101|ResNet101).*'},
+    'LRASPP_MobileNet': {'format': 'TorchVision', 'group': 'LRASPP', 'pattern': '.*?(lraspp|LRASPP).*?(mobilenet|MobileNet).*'},
 }
 
 
@@ -41,18 +44,26 @@ def load_seg_model(model_name, weight_path):
     # Load TorchVision model
     if SEGMENTATION_MODELS[model_name]['format'] == 'TorchVision':
         params_load = torch.load(weight_path)
-        if model_name == 'FCN_ResNet50':
+        if SEGMENTATION_MODELS[model_name]['group'] == 'FCN':
             num_classes = len(params_load['classifier.4.bias'])
-            model = models.segmentation.fcn_resnet50(aux_loss=True)
+            if model_name == 'FCN_ResNet50':
+                model = models.segmentation.fcn_resnet50(aux_loss=True)
+            elif model_name == 'FCN_ResNet101':
+                model = models.segmentation.fcn_resnet101(aux_loss=True)
             model.aux_classifier = models.segmentation.fcn.FCNHead(1024, num_classes)
             model.classifier = models.segmentation.fcn.FCNHead(2048, num_classes)
-        elif model_name == 'DeepLabV3_ResNet50':
+        elif SEGMENTATION_MODELS[model_name]['group'] == 'DeepLabV3':
             num_classes = len(params_load['classifier.4.bias'])
-            model = models.segmentation.deeplabv3_resnet50()
+            if model_name == 'DeepLabV3_MobileNet':
+                model = models.segmentation.deeplabv3_mobilenet_v3_large(aux_loss=True)
+            elif model_name == 'DeepLabV3_ResNet50':
+                model = models.segmentation.deeplabv3_resnet50(aux_loss=True)
+            elif model_name == 'DeepLabV3_ResNet101':
+                model = models.segmentation.fcn_resnet101(aux_loss=True)
             model.aux_classifier = models.segmentation.fcn.FCNHead(1024, num_classes)
             model.classifier = models.segmentation.deeplabv3.DeepLabHead(2048, num_classes)
             model.aux_classifier = None  # Disable aux_classifier to avoid an error
-        elif model_name == 'LRASPP_MobileNet':
+        elif SEGMENTATION_MODELS[model_name]['group'] == 'LRASPP':
             num_classes = len(params_load['classifier.high_classifier.bias'])
             model = models.segmentation.lraspp_mobilenet_v3_large()
             low_channels = model.classifier.low_classifier.in_channels
@@ -88,7 +99,7 @@ def load_seg_default_models(weight_dir, weight_names):
         progress_bar.empty()
 
 def inference(image, model):
-    img_transformed = preproessing.get_transform(model['model_name'])(image)
+    img_transformed = preprocessing.get_transform(model['model_name'])(image)
     # Inference of TorchVision model
     if SEGMENTATION_MODELS[model['model_name']]['format'] == 'TorchVision':
         prediction = model['model'](img_transformed.unsqueeze(0))['out']

@@ -17,7 +17,19 @@ def get_transform(model_name):
             v2.ToTensor(),
             v2.Normalize(IMAGENET_MEAN, IMAGENET_STD)
         ]),
+        'FCN_ResNet101': v2.Compose([
+            v2.ToTensor(),
+            v2.Normalize(IMAGENET_MEAN, IMAGENET_STD)
+        ]),
+        'DeepLabV3_MobileNet': v2.Compose([
+            v2.ToTensor(),
+            v2.Normalize(IMAGENET_MEAN, IMAGENET_STD)
+        ]),
         'DeepLabV3_ResNet50': v2.Compose([
+            v2.ToTensor(),
+            v2.Normalize(IMAGENET_MEAN, IMAGENET_STD)
+        ]),
+        'DeepLabV3_ResNet101': v2.Compose([
             v2.ToTensor(),
             v2.Normalize(IMAGENET_MEAN, IMAGENET_STD)
         ]),
@@ -33,7 +45,16 @@ def get_target_transform(model_name):
         'FCN_ResNet50': v2.Compose([
             v2.PILToTensor()
         ]),
+        'FCN_ResNet101': v2.Compose([
+            v2.PILToTensor()
+        ]),
+        'DeepLabV3_MobileNet': v2.Compose([
+            v2.PILToTensor()
+        ]),
         'DeepLabV3_ResNet50': v2.Compose([
+            v2.PILToTensor()
+        ]),
+        'DeepLabV3_ResNet101': v2.Compose([
             v2.PILToTensor()
         ]),
         'LRASPP_MobileNet': v2.Compose([
@@ -45,7 +66,10 @@ def get_target_transform(model_name):
 def get_albumentations_transform(model_name):
     albumentations_transforms = {
         'FCN_ResNet50': None,
+        'FCN_ResNet101': None,
+        'DeepLabV3_MobileNet': None,
         'DeepLabV3_ResNet50': None,
+        'DeepLabV3_ResNet101': None,
         'LRASPP_MobileNet': None,
     }
     return albumentations_transforms[model_name]
@@ -54,7 +78,13 @@ def get_dataloader(model_name, dataset, batch_size, num_workers):
     dataloaders = {
         'FCN_ResNet50': DataLoader(
             dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers),
+        'FCN_ResNet101': DataLoader(
+            dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers),
+        'DeepLabV3_MobileNet': DataLoader(
+            dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers),
         'DeepLabV3_ResNet50': DataLoader(
+            dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers),
+        'DeepLabV3_ResNet101': DataLoader(
             dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers),
         'LRASPP_MobileNet': DataLoader(
             dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers),

@@ -63,8 +63,9 @@ class BaseSegmentation():
     def display_annotations(self, num_displayed_images: int = 10, batch_idx: int=0, 
                             denormalize_transform=None):
         """Display images in the specified mini-batch"""
-        display_iter = iter(self.train_loader)
-        imgs, targets = next(display_iter)
+        for i, (imgs, targets) in enumerate(self.train_loader):
+            if i == batch_idx:
+                break
         for i, (img, target) in enumerate(zip(imgs, targets)):
             if denormalize_transform is not None:
                 img = denormalize_transform(img)
@@ -92,8 +93,9 @@ class BaseSegmentation():
                         denormalize_transform=None):
         """Display the prediction in the specified mini-batch"""
         # Inference
-        val_iter = iter(self.val_loader)
-        imgs, targets = next(val_iter)
+        for i, (imgs, targets) in enumerate(self.val_loader):
+            if i == batch_idx:
+                break
         self.model.eval()  # Set the evaluation mode
         imgs_gpu = imgs.to(self.device)
         predictions = self.model(imgs_gpu)
@@ -279,7 +281,8 @@ class TorchVisionSeg(BaseSegmentation):
             val_running_loss /= len(self.val_loader)
             self.val_losses.append(val_running_loss)
 
-            print(f'epoch: {epoch}, loss: {running_loss}, val_loss: {val_running_loss}, elapsed_time: {time.time() - start}')
+            self.elaped_times.append(time.time() - start)
+            print(f'epoch: {epoch}, loss: {running_loss}, val_loss: {val_running_loss}, elapsed_time: {self.elaped_times[-1]}')
     
         ###### MLFlow ######
 

@@ -1,19 +1,19 @@
 version: '3'
 services:
   # Container for a web app showing annotation data and inference result
-  pytorch_app:
-    container_name: pytorch_app
+  pytorch_eval_app:
+    container_name: eval_app
     image: streamlit_pytorch:1.0 # Docker image
     build:
-      context: $PWD/image_app/pytorch_app
+      context: $PWD/eval_app/pytorch_eval_app
       shm_size: '16gb'  # Increase shared memory size for NN Training
       dockerfile: Dockerfile
     ports:
-      # Expose port 8080 for the API (Port 8501 in Docker container)
+      # Expose port 8080 for the app (Port 8501 in Docker container)
       - 8080:8501
     volumes:
       # Share the volumes between external folder and internal container
-      - $PWD/image_app/pytorch_app/app:/app  # main app
+      - $PWD/eval_app/pytorch_eval_app/app:/app  # main app
       - $PWD/torch_extend:/app/torch_extend  # torch_extend
       - $PWD/datasets:/app/datasets  # Datasets
       - $PWD/pretrained_weights:/app/pretrained_weights  # Pretrained weight
