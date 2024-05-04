@@ -4,7 +4,11 @@ import re
 import glob
 import torch
 from torchvision import models
+from torchvision.transforms import Normalize
+import albumentations as A
 import streamlit as st
+import numpy as np
+from PIL import Image
 
 from torch_extend.segmentation.metrics import segmentation_ious_one_image
 import config.segmentation.preprocessing as preprocessing
@@ -17,6 +21,9 @@ SEGMENTATION_MODELS = {
     'DeepLabV3_ResNet101': {'format': 'TorchVision', 'group': 'DeepLabV3', 'pattern': '.*?(deeplabv3|DeepLabV3).*?(resnet101|ResNet101).*'},
     'LRASPP_MobileNet': {'format': 'TorchVision', 'group': 'LRASPP', 'pattern': '.*?(lraspp|LRASPP).*?(mobilenet|MobileNet).*'},
 }
+
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
 
 
 def list_seg_models(modelformat):
@@ -98,23 +105,34 @@ def load_seg_default_models(weight_dir, weight_names):
         st.session_state['seg_models'] = models
         progress_bar.empty()
 
+def _reverse_transform_img(img, transform, albumentations_transform):
+    # Denormalize
+    trs = transform.transforms if transform is not None else albumentations_transform
+    for tr in trs:
+        if isinstance(tr, Normalize) or isinstance(tr, A.Normalize):
+            img = Normalize(mean=[-mean/std for mean, std in zip(IMAGENET_MEAN, IMAGENET_STD)],
+                            std=[1/std for std in IMAGENET_STD])(img)
+    # To uint8
+    img = (img*255).to(torch.uint8)
+    return img
+
 def inference(image, model):
-    img_transformed = preprocessing.get_transform(model['model_name'])(image)
     # Inference of TorchVision model
     if SEGMENTATION_MODELS[model['model_name']]['format'] == 'TorchVision':
-        prediction = model['model'](img_transformed.unsqueeze(0))['out']
+        prediction = model['model'](image.unsqueeze(0))['out']
         predicted_labels = prediction.argmax(1).cpu().detach()
+
     return predicted_labels
 
-def inference_and_score(image, model, idx_to_class, mask, border_idx):
+def inference_and_score(img_transformed, mask_transformed, model, idx_to_class, border_idx):
     # Inference
-    predicted_labels = inference(image, model)
+    predicted_labels = inference(img_transformed, model)
     # Add the border label to idx_to_class
     idx_to_class_bd = {k: v for k, v in idx_to_class.items()}
     if border_idx is not None:
         idx_to_class_bd[border_idx] = 'border'
     # Calculate the metrics
-    ious, tps, fps, fns = segmentation_ious_one_image(predicted_labels, mask, labels=list(idx_to_class_bd.keys()))
+    ious, tps, fps, fns = segmentation_ious_one_image(predicted_labels, mask_transformed, labels=list(idx_to_class_bd.keys()))
     iou_dict = {
         k: {
             'label_name': v,
@@ -123,6 +141,50 @@ def inference_and_score(image, model, idx_to_class, mask, border_idx):
             'fn': fns[i],
             'iou': ious[i]
         }
-        for i, (k, v) in enumerate(idx_to_class.items()) 
+        for i, (k, v) in enumerate(idx_to_class.items())
     }
     return predicted_labels, iou_dict
+
+def _display_transform(img, transform, albumentations_transform):
+    # Denormalize the image
+    trs = transform.transforms if transform is not None else albumentations_transform
+    for tr in trs:
+        if isinstance(tr, Normalize) or isinstance(tr, A.Normalize):
+            img_display = Normalize(mean=[-mean/std for mean, std in zip(IMAGENET_MEAN, IMAGENET_STD)],
+                                    std=[1/std for std in IMAGENET_STD])(img)
+    # Convert the image to PIL image
+    img_display = (img_display*255).to(torch.uint8).permute(1, 2, 0).numpy()
+    img_display = Image.fromarray(img_display).convert('RGB')
+    
+    return img_display
+
+def transform_image_ann(image, ann_image, models, idx_to_class):
+    imgs_transformed = []
+    masks_transformed = []
+    imgs_display = []
+    for model in models:
+        if model is None:
+            imgs_transformed.append(None)
+            masks_transformed.append(None)
+            imgs_display.append(None)
+        else:
+            # Transform the image
+            transform = preprocessing.get_transform(model['model_name'])
+            target_transform = preprocessing.get_target_transform(model['model_name'])
+            albumentations_transform = preprocessing.get_albumentations_transform(model['model_name'])
+            if transform is not None and target_transform is not None:
+                img_transformed = transform(image)
+                mask_transformed = target_transform(ann_image).squeeze(0).long()
+                mask_transformed[mask_transformed == 255] = len(idx_to_class)
+            elif albumentations_transform is not None:
+                img_transformed = albumentations_transform(image=np.array(image))['image']
+                mask_transformed = albumentations_transform(image=np.array(image), mask=np.asarray(ann_image).copy())['mask'].squeeze(0).long()
+            else:
+                raise Exception('Please describe the transform either on `get_target_transform()` or on `get_albumentations_transform()`')
+            # Denormalize the image for the display
+            img_display = _display_transform(img_transformed, transform, albumentations_transform)
+            imgs_transformed.append(img_transformed)
+            masks_transformed.append(mask_transformed)
+            imgs_display.append(img_display)
+    
+    return imgs_transformed, masks_transformed, imgs_display

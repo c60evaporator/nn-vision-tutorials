@@ -11,7 +11,7 @@ from PIL import Image, ImageEnhance
 from torch_extend.segmentation.display import array1d_to_pil_image
 from torch_extend.segmentation.dataset_utils import list_datasets, get_seg_voc_dataset, convert_seg_voc_mask, read_image_metadata
 
-from utils.segmentation.models import load_seg_default_models, inference_and_score
+from utils.segmentation.models import load_seg_default_models, inference_and_score, transform_image_ann
 from utils.segmentation.display import show_seg_legend, create_overlayed_annotation, get_segmentation_palette
 from sql.database import get_db
 import sql.crud as crud
@@ -199,19 +199,24 @@ if dataset_info is not None:
                 segmentation_overlay_alpha = st.slider('Alpha', 0.0, 1.0, value=0.5, step=0.1)
             # Generate a palette for the mask images
             palette = get_segmentation_palette(selected_format, bg_idx, border_idx, bg_bright=True, border_dark=True)
+            # Transform the image and the mask
+            imgs_transformed, masks_transformed, imgs_display = transform_image_ann(
+                raw_image, ann_image, selected_models, idx_to_class)
             # Conduct inference
             displayed_images = []
             displayed_text = []
             for i, model in enumerate(selected_models):
                 # Annotation
                 if model is None:
-                    shown_mask, iou_dict = mask[0], None
+                    shown_mask, img_display, iou_dict = masks_transformed[1 - i], imgs_display[1 - i], None
                 # Inference result of the model
                 else:
-                    predicted_labels, iou_dict = inference_and_score(raw_image, model, idx_to_class, mask, border_idx)
+                    predicted_labels, iou_dict = inference_and_score(
+                        imgs_transformed[i], masks_transformed[i], model, idx_to_class, border_idx)
                     shown_mask = predicted_labels[0]
+                    img_display = imgs_display[i]
                 mask_image = array1d_to_pil_image(shown_mask, palette)
-                displayed_image = create_overlayed_annotation(raw_image, mask_image, segmentation_overlay_alpha)
+                displayed_image = create_overlayed_annotation(img_display, mask_image, segmentation_overlay_alpha)
                 displayed_images.append(displayed_image)
                 with col_alpha_legend[0 if i == 0 else 2]:
                     # Show the legend with the score
