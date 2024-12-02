@@ -1,0 +1,11 @@
+scikit-learn
+pandas
+pyyaml
+seaborn
+jupyter
+opencv-python
+pycocotools
+onnxruntime
+onnx
+albumentations
+lightning

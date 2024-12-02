@@ -7,9 +7,10 @@ __pycache__
 datasets/
 params/
 pretrained_weights/
-image/image_workspace/scripts/examples/cnn/configs/
-image/image_workspace/scripts/examples/cnn/results/
-image/image_workspace/scripts/examples/object_detection/configs/yolov8.yaml
-image/image_workspace/scripts/examples/object_detection/results/
-image/image_workspace/scripts/examples/segmentation/results/
+image/examples/workspace/scripts/cnn/configs/
+image/examples/workspace/scripts/cnn/results/
+image/examples/workspace/scripts/object_detection/configs/yolov8.yaml
+image/examples/workspace/scripts/object_detection/results/
+image/examples/workspace/scripts/segmentation/results/
+image/examples/workspace/scripts/anomaly_detection/results/
 .env
